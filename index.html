@@ -2,18 +2,28 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>هاتف العائلة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>نظام العائلة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: sans-serif; background: #efe7de; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        #status { background: #075e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
-        #videoArea { width: 100%; display: none; background: #000; position: relative; }
-        video { width: 100%; height: auto; border-bottom: 4px solid #128c7e; }
-        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .input-bar { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #ddd; padding-bottom: 20px; }
-        input { flex: 1; padding: 12px; border-radius: 25px; border: none; outline: none; }
-        i { color: #51585c; font-size: 26px; cursor: pointer; }
+        /* 1. حل مشكلة اختفاء الأجزاء (ضبط الارتفاع) */
+        body { font-family: sans-serif; background: #efe7de; margin: 0; display: flex; flex-direction: column; height: 100vh; height: -webkit-fill-available; overflow: hidden; }
+        
+        #status { background: #075e54; color: white; padding: 10px; text-align: center; font-size: 14px; position: sticky; top: 0; z-index: 100; }
+        
+        /* 2. تحسين منطقة الفيديو */
+        #videoArea { width: 100%; display: none; background: #000; border-bottom: 2px solid #128c7e; position: relative; }
+        video { width: 100%; height: auto; max-height: 40vh; object-fit: cover; }
+
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 70px; }
+        .msg { background: #dcf8c6; padding: 10px 15px; border-radius: 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .image-msg { align-self: flex-end; max-width: 70%; border-radius: 10px; overflow: hidden; border: 2px solid #dcf8c6; }
+        .image-msg img { width: 100%; display: block; }
+
+        /* 3. حل مشكلة اختفاء الشريط السفلي */
+        .input-bar { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; position: fixed; bottom: 0; width: 100%; box-sizing: border-box; border-top: 1px solid #ddd; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+        input { flex: 1; padding: 12px; border-radius: 25px; border: none; outline: none; font-size: 16px; }
+        i { color: #51585c; font-size: 24px; cursor: pointer; padding: 5px; }
     </style>
 </head>
 <body>
@@ -24,45 +34,78 @@
         <video id="webcam" autoplay playsinline muted></video>
     </div>
 
-    <div id="chat" id="messages"></div>
+    <div id="chat"></div>
 
     <div class="input-bar">
-        <i class="fas fa-camera" id="btnCam"></i>
+        <i class="fas fa-camera" id="btnCapture" title="التقاط صورة"></i>
+        <i class="fas fa-video" id="btnStream" title="بث مباشر"></i>
         <i class="fas fa-microphone" id="btnMic"></i>
         <input type="text" id="userInput" placeholder="اكتب رسالة...">
         <i class="fas fa-paper-plane" style="color:#128c7e" id="btnSend"></i>
     </div>
 
+    <canvas id="canvas" style="display:none;"></canvas>
+
     <script>
-        const btnCam = document.getElementById('btnCam');
+        const btnStream = document.getElementById('btnStream');
+        const btnCapture = document.getElementById('btnCapture');
+        const btnMic = document.getElementById('btnMic');
         const videoArea = document.getElementById('videoArea');
         const webcam = document.getElementById('webcam');
+        const chat = document.getElementById('chat');
+        const canvas = document.getElementById('canvas');
 
-        // تشغيل الكاميرا الأمامية فوراً
-        btnCam.onclick = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" },
-                    audio: false 
-                });
-                webcam.srcObject = stream;
-                videoArea.style.display = "block";
-                // أمر تشغيل إجباري لكسر الدائرة المتكررة
-                webcam.play().catch(e => console.log("Video play failed"));
-            } catch (err) {
-                alert("يرجى الضغط على 'سماح' في المتصفح لتفعيل الكاميرا");
+        // وظيفة البث المباشر (أيقونة الفيديو)
+        btnStream.onclick = async () => {
+            if (videoArea.style.display === "block") {
+                videoArea.style.display = "none";
+                webcam.srcObject.getTracks().forEach(t => t.stop());
+            } else {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                    webcam.srcObject = stream;
+                    videoArea.style.display = "block";
+                    webcam.play();
+                } catch (e) { alert("تأكد من إذن الكاميرا"); }
             }
         };
 
-        // تفعيل زر الإرسال
+        // وظيفة التقاط صورة وإرسالها (أيقونة الكاميرا)
+        btnCapture.onclick = () => {
+            if (webcam.srcObject) {
+                canvas.width = webcam.videoWidth;
+                canvas.height = webcam.videoHeight;
+                canvas.getContext('2d').drawImage(webcam, 0, 0);
+                const data = canvas.toDataURL('image/png');
+                const div = document.createElement('div');
+                div.className = 'image-msg';
+                div.innerHTML = `<img src="${data}">`;
+                chat.appendChild(div);
+                chat.scrollTop = chat.scrollHeight;
+            } else {
+                alert("شغّل البث أولاً لالتقاط صورة");
+            }
+        };
+
+        // وظيفة الميكروفون
+        btnMic.onclick = async () => {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                btnMic.style.color = "#128c7e";
+                alert("الميكروفون نشط الآن");
+            } catch (e) { alert("تأكد من إذن الميكروفون"); }
+        };
+
+        // إرسال النص
         document.getElementById('btnSend').onclick = () => {
             const input = document.getElementById('userInput');
-            if(input.value) {
-                const msg = document.createElement('div');
-                msg.textContent = input.value;
-                msg.style.cssText = "background:#dcf8c6; padding:10px; border-radius:15px; align-self:flex-end; max-width:80%;";
-                document.getElementById('chat').appendChild(msg);
+            if (input.value.trim() !== "") {
+                const div = document.createElement('div');
+                div.className = 'msg';
+                div.textContent = input.value;
+                chat.appendChild(div);
                 input.value = "";
+                chat.scrollTop = chat.scrollHeight;
             }
         };
     </script>
