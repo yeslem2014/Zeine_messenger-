@@ -1,0 +1,28 @@
+.message {
+    max-width: 70%;
+    margin: 5px 10px;
+    padding: 10px;
+    border-radius: 15px;
+    font-family: Arial, sans-serif;
+    clear: both;
+}
+
+.sent {
+    background-color: #dcf8c6; /* اللون الأخضر الذي ظهر في صورتك */
+    float: right;
+    text-align: right;
+}
+
+.received {
+    background-color: #ffffff;
+    float: left;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+.time {
+    font-size: 0.7em;
+    display: block;
+    margin-top: 5px;
+    color: #888;
+}

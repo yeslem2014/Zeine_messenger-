@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>هاتف العائلة - المرسل</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --primary: #128c7e; --bg: #efe7de; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        #status { background: #075e54; color: white; padding: 10px; text-align: center; }
+        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 10px; border-radius: 10px; max-width: 80%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .from-phone { background: #dcf8c6; align-self: flex-end; }
+        .from-tablet { background: white; align-self: flex-start; }
+        #cameraModal { display: none; position: fixed; inset: 0; background: black; z-index: 1000; flex-direction: column; }
+        video { width: 100%; height: 75vh; object-fit: cover; }
+        .cam-controls { flex: 1; display: flex; justify-content: space-around; align-items: center; background: #000; }
+        .input-area { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; }
+        input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; outline: none; }
+        img, audio { max-width: 100%; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div id="status">جاري البحث عن التابلت...</div>
+    <div id="messages"></div>
+
+    <div id="cameraModal">
+        <video id="video" autoplay playsinline muted></video>
+        <div class="cam-controls">
+            <button onclick="stopCamera()" style="padding:15px; background:red; color:white; border:none; border-radius:10px;">إلغاء</button>
+            <button onclick="takeSnapshot()" id="snapBtn" style="padding:25px; background:white; border-radius:50%; border:4px solid #128c7e; width:80px; height:80px;"></button>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <button onclick="startCamera()" style="border:none; background:none; font-size:24px; cursor:pointer;">📷</button>
+        <button id="micBtn" onclick="toggleMic()" style="border:none; background:none; font-size:24px; cursor:pointer;">🎤</button>
+        <input type="text" id="msgInput" placeholder="اكتب رسالة...">
+        <button onclick="sendText()" style="border:none; background:none; font-size:24px; color:#128c7e; cursor:pointer;">➤</button>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        const tabletId = 'family-tablet-2026';
+        let conn, currentStream, mediaRecorder, audioChunks = [];
+
+        peer.on('open', () => { connect(); });
+
+        function connect() {
+            conn = peer.connect(tabletId);
+            conn.on('open', () => {
+                document.getElementById('status').innerText = "● متصل بالتابلت";
+                document.getElementById('status').style.background = "#054d44";
+            });
+            conn.on('data', data => display(data, 'from-tablet'));
+            conn.on('close', () => {
+                document.getElementById('status').innerText = "جاري إعادة الاتصال...";
+                setTimeout(connect, 2000);
+            });
+        }
+
+        async function startCamera() {
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const v = document.getElementById('video');
+                v.srcObject = currentStream;
+                document.getElementById('cameraModal').style.display = 'flex';
+                v.play();
+            } catch (e) { alert("تأكد من إذن الكاميرا"); }
+        }
+
+        function takeSnapshot() {
+            const v = document.getElementById('video');
+            const btn = document.getElementById('snapBtn');
+            btn.disabled = true; // منع التكرار
+
+            // الانتظار 300 ميللي ثانية لضمان ثبات الصورة
+            setTimeout(() => {
+                const canvas = document.createElement('canvas');
+                canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(v, 0, 0);
+                
+                const data = canvas.toDataURL('image/jpeg', 0.5);
+                const msg = { type: 'image', content: data };
+                if (conn && conn.open) {
+                    conn.send(msg);
+                    display(msg, 'from-phone');
+                    stopCamera();
+                }
+                btn.disabled = false;
+            }, 300); 
+        }
+
+        function stopCamera() {
+            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+            document.getElementById('cameraModal').style.display = 'none';
+        }
+
+        async function toggleMic() {
+            const btn = document.getElementById('micBtn');
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(s);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/ogg' });
+                    const r = new FileReader();
+                    r.onload = () => {
+                        const m = { type: 'audio', content: r.result };
+                        conn.send(m); display(m, 'from-phone');
+                    };
+                    r.readAsDataURL(blob);
+                    btn.style.color = "black";
+                };
+                mediaRecorder.start();
+                btn.style.color = "red";
+            } else { mediaRecorder.stop(); }
+        }
+
+        function sendText() {
+            const inp = document.getElementById('msgInput');
+            if (conn && conn.open && inp.value.trim()) {
+                const m = { type: 'text', content: inp.value };
+                conn.send(m); display(m, 'from-phone');
+                inp.value = '';
+            }
+        }
+
+        function display(data, className) {
+            const box = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = `msg ${className}`;
+            if (data.type === 'text') div.innerText = data.content;
+            else if (data.type === 'image') { const i = document.createElement('img'); i.src = data.content; div.appendChild(i); }
+            else if (data.type === 'audio') { const a = document.createElement('audio'); a.src = data.content; a.controls = true; div.appendChild(a); }
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+    </script>
+</body>
+</html>

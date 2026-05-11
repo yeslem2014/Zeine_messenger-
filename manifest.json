@@ -1,0 +1,9 @@
+{
+  "name": "Family Messenger",
+  "short_name": "Messenger",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#efe7de",
+  "theme_color": "#075e54",
+  "orientation": "portrait"
+}
