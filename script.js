@@ -1,30 +1,38 @@
-const peer = new Peer(); 
-const messageInput = document.getElementById('messageInput');
-const sendBtn = document.getElementById('sendBtn');
-const messagesDiv = document.getElementById('messages');
-const status = document.getElementById('status');
+// ربط العناصر من صفحة الـ HTML
+const messageInput = document.querySelector('input');
+const sendBtn = document.querySelector('.fa-paper-plane');
+const cameraBtn = document.querySelector('.fa-camera');
+const voiceBtn = document.querySelector('.fa-microphone');
 
-// عند فتح الصفحة، يعطيك المعرف الخاص بك
-peer.on('open', (id) => {
-    console.log('معرفك هو: ' + id);
-});
-
-// وظيفة إرسال الرسالة عند الضغط على السهم
+// 1. وظيفة إرسال رسالة نصية (تجريبية)
 sendBtn.onclick = () => {
-    const msg = messageInput.value;
-    if (msg) {
-        const div = document.createElement('div');
-        div.textContent = "أنا: " + msg;
-        div.style.background = "#dcf8c6";
-        div.style.padding = "8px";
-        div.style.margin = "5px";
-        div.style.borderRadius = "10px";
-        div.style.alignSelf = "flex-end";
-        messagesDiv.appendChild(div);
-        messageInput.value = "";
+    const text = messageInput.value;
+    if (text) {
+        alert("تم إرسال رسالتك: " + text);
+        messageInput.value = ""; // تنظيف الخانة بعد الإرسال
+    } else {
+        alert("يرجى كتابة رسالة أولاً");
     }
 };
 
-// تنبيه عند الضغط على الكاميرا أو الميكروفون (مؤقتاً)
-document.querySelector('.fa-camera').onclick = () => alert("سيتم تفعيل الكاميرا قريباً");
-document.querySelector('.fa-microphone').onclick = () => alert("سيتم تفعيل تسجيل الصوت قريباً");
+// 2. وظيفة فتح الكاميرا (طلب الإذن)
+cameraBtn.onclick = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        alert("تم تفعيل الكاميرا بنجاح!");
+        // سنقوم لاحقاً بإظهار الفيديو في مربع صغير
+        stream.getTracks().forEach(track => track.stop()); // إغلاقها بعد الفحص
+    } catch (err) {
+        alert("خطأ: يرجى السماح للمتصفح بالوصول للكاميرا");
+    }
+};
+
+// 3. وظيفة الميكروفون (طلب الإذن)
+voiceBtn.onclick = async () => {
+    try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        alert("الميكروفون جاهز لتسجيل الصوت!");
+    } catch (err) {
+        alert("خطأ: يرجى السماح للمتصفح بالوصول للميكروفون");
+    }
+};
