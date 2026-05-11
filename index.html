@@ -12,23 +12,32 @@
         #status { background: #075e54; color: white; padding: 12px; text-align: center; font-size: 14px; font-weight: bold; z-index: 10; }
         #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         
-        /* شريط الأدوات السفلي */
+        /* تنسيق شريط الإرسال السفلي */
         .input-area { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #ddd; }
         .input-area input { flex: 1; padding: 10px; border-radius: 20px; border: none; outline: none; font-size: 16px; }
         .input-area i { color: #51585c; font-size: 20px; cursor: pointer; padding: 5px; }
         .send-btn { color: var(--primary) !important; font-size: 24px !important; }
+        
+        /* تنسيق فقاعات الرسائل */
+        .message { max-width: 80%; padding: 8px 12px; border-radius: 10px; margin: 5px; font-size: 15px; line-height: 1.4; }
+        .sent { background: #dcf8c6; align-self: flex-end; }
+        .received { background: var(--white); align-self: flex-start; }
     </style>
 </head>
 <body>
 
-    <div id="status">جاري البحث عن التابلت...</div>
+    <div id="status">جاري الاتصال بالنظام...</div>
     
     <div id="messages">
         </div>
 
     <div class="input-area">
-        <i class="fas fa-paperclip"></i> <input type="text" id="messageInput" placeholder="اكتب رسالة...">
-        <i class="fas fa-microphone"></i> <i class="fas fa-camera"></i>     <i class="fas fa-paper-plane send-btn" id="sendBtn"></i> </div>
+        <i class="fas fa-paperclip" title="إرفاق ملف"></i>
+        <input type="text" id="messageInput" placeholder="اكتب رسالة...">
+        <i class="fas fa-microphone" id="voiceBtn" title="تسجيل صوتي"></i>
+        <i class="fas fa-camera" id="cameraBtn" title="فتح الكاميرا"></i>
+        <i class="fas fa-paper-plane send-btn" id="sendBtn"></i>
+    </div>
 
     <script src="script.js"></script>
 </body>
