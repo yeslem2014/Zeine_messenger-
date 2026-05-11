@@ -7,26 +7,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --whatsapp-green: #075e54; --light-green: #dcf8c6; --bg-color: #efe7de; }
-        
         body { font-family: sans-serif; background: var(--bg-color); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* ضبط شريط الحالة العلوي */
-        #status { background: var(--whatsapp-green); color: white; padding: 12px; text-align: center; font-weight: bold; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        #status { background: var(--whatsapp-green); color: white; padding: 12px; text-align: center; font-weight: bold; z-index: 1000; }
         
-        /* منطقة البث المباشر */
-        #videoArea { width: 100%; display: none; background: #000; border-bottom: 2px solid #128c7e; }
-        video { width: 100%; height: auto; max-height: 35vh; object-fit: cover; }
+        #videoArea { width: 100%; display: none; background: #000; position: relative; }
+        video { width: 100%; height: auto; max-height: 40vh; object-fit: cover; display: block; }
 
-        /* منطقة المحادثة */
-        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 90px; }
-        .msg { background: var(--light-green); padding: 10px 15px; border-radius: 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); font-size: 16px; }
-        .img-msg { align-self: flex-end; max-width: 70%; border-radius: 10px; overflow: hidden; border: 2px solid white; box-shadow: 0 1px 5px rgba(0,0,0,0.2); }
-        .img-msg img { width: 100%; display: block; }
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 80px; }
+        .msg { background: var(--light-green); padding: 10px 15px; border-radius: 15px; align-self: flex-end; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); word-wrap: break-word; }
+        
+        /* تحسين عرض الصور الملتقطة */
+        .img-container { align-self: flex-end; max-width: 75%; border-radius: 10px; overflow: hidden; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.2); background: #fff; }
+        .img-container img { width: 100%; height: auto; display: block; }
 
-        /* شريط الإدخال السفلي الثابت */
-        .input-bar { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; position: fixed; bottom: 0; width: 100%; box-sizing: border-box; border-top: 1px solid #ccc; z-index: 1000; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+        .input-bar { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 8px; position: fixed; bottom: 0; width: 100%; box-sizing: border-box; border-top: 1px solid #ccc; z-index: 1001; }
         input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid #ddd; outline: none; font-size: 16px; }
-        i { color: #51585c; font-size: 24px; cursor: pointer; padding: 5px; }
+        i { color: #51585c; font-size: 22px; cursor: pointer; padding: 5px; transition: 0.3s; }
         .active-icon { color: #128c7e !important; }
     </style>
 </head>
@@ -40,13 +37,13 @@
 
     <div id="chat"></div>
 
-    <div class="input-bar">
-        <i class="fas fa-video" id="btnStream" title="بث مباشر"></i>
-        <i class="fas fa-camera" id="btnCapture" title="التقاط صورة"></i>
-        <i class="fas fa-microphone" id="btnMic" title="ميكروفون"></i>
-        <input type="text" id="userInput" placeholder="اكتب رسالة...">
-        <i class="fas fa-paper-plane active-icon" id="btnSend"></i>
-    </div>
+    <form class="input-bar" id="msgForm" onsubmit="return false;">
+        <i class="fas fa-video" id="btnStream"></i>
+        <i class="fas fa-camera" id="btnCapture"></i>
+        <i class="fas fa-microphone" id="btnMic"></i>
+        <input type="text" id="userInput" placeholder="اكتب رسالة..." enterkeyhint="send">
+        <i class="fas fa-paper-plane" id="btnSend"></i>
+    </form>
 
     <canvas id="canvas" style="display:none;"></canvas>
 
@@ -59,61 +56,87 @@
         const chat = document.getElementById('chat');
         const canvas = document.getElementById('canvas');
         const userInput = document.getElementById('userInput');
+        const btnSend = document.getElementById('btnSend');
 
-        // 1. تشغيل/إغلاق البث المباشر
+        let streamInstance = null;
+
+        // 1. وظيفة البث مع معالجة الأذونات المتكررة
         btnStream.onclick = async () => {
-            if (videoArea.style.display === "block") {
-                videoArea.style.display = "none";
-                if (webcam.srcObject) {
-                    webcam.srcObject.getTracks().forEach(t => t.stop());
-                }
-                btnStream.classList.remove('active-icon');
+            if (streamInstance) {
+                stopStream();
             } else {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                    webcam.srcObject = stream;
+                    streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+                    webcam.srcObject = streamInstance;
                     videoArea.style.display = "block";
                     btnStream.classList.add('active-icon');
-                } catch (e) { alert("يرجى تفعيل إذن الكاميرا من الإعدادات"); }
+                    btnMic.classList.add('active-icon');
+                } catch (e) {
+                    alert("يرجى تفعيل صلاحيات الكاميرا والميكروفون من إعدادات المتصفح");
+                }
             }
         };
 
-        // 2. التقاط صورة من البث وإرسالها
+        function stopStream() {
+            if (streamInstance) {
+                streamInstance.getTracks().forEach(track => track.stop());
+                streamInstance = null;
+            }
+            videoArea.style.display = "none";
+            btnStream.classList.remove('active-icon');
+            btnMic.classList.remove('active-icon');
+        }
+
+        // 2. التقاط صورة بجودة وتنسيق أفضل
         btnCapture.onclick = () => {
-            if (webcam.srcObject && videoArea.style.display === "block") {
+            if (streamInstance) {
                 canvas.width = webcam.videoWidth;
                 canvas.height = webcam.videoHeight;
-                canvas.getContext('2d').drawImage(webcam, 0, 0);
-                const imageData = canvas.toDataURL('image/png');
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(webcam, 0, 0, canvas.width, canvas.height);
                 
-                const div = document.createElement('div');
-                div.className = 'img-msg';
-                div.innerHTML = `<img src="${imageData}">`;
-                chat.appendChild(div);
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                const container = document.createElement('div');
+                container.className = 'img-container';
+                container.innerHTML = `<img src="${imageData}">`;
+                chat.appendChild(container);
                 chat.scrollTop = chat.scrollHeight;
             } else {
-                alert("يجب فتح البث المباشر أولاً لالتقاط صورة");
+                alert("افتح الكاميرا أولاً لالتقاط صورة");
             }
         };
 
-        // 3. تفعيل الميكروفون
-        btnMic.onclick = async () => {
-            try {
-                await navigator.mediaDevices.getUserMedia({ audio: true });
-                btnMic.classList.add('active-icon');
-                alert("الميكروفون نشط الآن");
-            } catch (e) { alert("يرجى تفعيل إذن الميكروفون"); }
-        };
-
-        // 4. إرسال النص
-        document.getElementById('btnSend').onclick = () => {
-            if (userInput.value.trim() !== "") {
+        // 3. إرسال الرسالة (دعم زر الإرسال وزر Go في لوحة المفاتيح)
+        function sendMessage() {
+            const text = userInput.value.trim();
+            if (text !== "") {
                 const div = document.createElement('div');
                 div.className = 'msg';
-                div.textContent = userInput.value;
+                div.textContent = text;
                 chat.appendChild(div);
                 userInput.value = "";
                 chat.scrollTop = chat.scrollHeight;
+            }
+        }
+
+        btnSend.onclick = sendMessage;
+
+        // تفعيل الإرسال عند الضغط على Enter أو Go من الهاتف
+        userInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                sendMessage();
+                userInput.blur(); // إخفاء لوحة المفاتيح بعد الإرسال
+            }
+        });
+
+        // طلب إذن الميكروفون بشكل مستقل
+        btnMic.onclick = async () => {
+            if (!streamInstance) {
+                try {
+                    await navigator.mediaDevices.getUserMedia({ audio: true });
+                    btnMic.classList.add('active-icon');
+                } catch (e) { alert("تم رفض إذن الميكروفون"); }
             }
         };
     </script>
