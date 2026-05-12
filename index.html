@@ -3,83 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام Zeine المطور</title>
+    <title>Zeine Messenger</title>
     <style>
-        body { font-family: sans-serif; background: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        .header { background: #075e54; color: white; padding: 25px; text-align: center; font-size: 24px; font-weight: bold; }
-        #chatArea { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-        .audio-card { background: #ffffff; padding: 25px; border-radius: 20px; width: 90%; align-self: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border-right: 12px solid #25d366; box-sizing: border-box; }
-        audio { width: 100%; height: 65px; outline: none; display: block; }
-        .footer { background: #f0f0f0; padding: 40px; text-align: center; border-top: 2px solid #ccc; }
-        #recordBtn { width: 120px; height: 120px; border-radius: 50%; border: none; background: #075e54; color: white; font-size: 50px; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.3); display: inline-flex; align-items: center; justify-content: center; }
-        .recording-active { background: #d32f2f !important; transform: scale(1.15); }
-        #msgInfo { margin-top: 20px; font-size: 22px; color: #000; font-weight: bold; }
+        :root { --wa-green: #075e54; --wa-light: #25d366; --bg-chat: #e5ddd5; }
+        body { font-family: sans-serif; background: var(--bg-chat); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* رأس الصفحة */
+        .header { background: var(--wa-green); color: white; padding: 15px; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        
+        /* منطقة الرسائل */
+        #chatBox { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 85%; padding: 10px; border-radius: 10px; position: relative; font-size: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .sent { background: #dcf8c6; align-self: flex-end; }
+        audio { width: 100%; height: 45px; }
+
+        /* شريط الأدوات السفلي - مثل واتساب */
+        .footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #ddd; }
+        .input-group { background: white; border-radius: 25px; flex: 1; display: flex; align-items: center; padding: 5px 15px; gap: 10px; }
+        input[type="text"] { border: none; flex: 1; padding: 10px; outline: none; font-size: 16px; }
+        
+        /* الأزرار */
+        .btn-icon { background: none; border: none; cursor: pointer; font-size: 20px; color: #555; padding: 5px; }
+        .main-btn { background: var(--wa-green); color: white; width: 50px; height: 50px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .recording { background: #d32f2f !important; animation: pulse 1s infinite; }
+
+        /* الكاميرا */
+        #cameraPreview { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; display: none; flex-direction: column; z-index: 1000; }
+        video { flex: 1; width: 100%; object-fit: cover; }
+        .cam-controls { background: rgba(0,0,0,0.5); padding: 20px; display: flex; justify-content: space-around; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
-<div class="header">نظام Zeine المطور</div>
-<div id="chatArea"></div>
+<div class="header">🟢 نظام Zeine - دردشة العائلة</div>
+
+<div id="chatBox"></div>
+
+<div id="cameraPreview">
+    <video id="video" autoplay playsinline></video>
+    <div class="cam-controls">
+        <button class="btn-icon" style="color:white; font-size:30px;" onclick="closeCamera()">❌</button>
+        <button class="btn-icon" style="color:white; font-size:40px;" onclick="takePhoto()">📸</button>
+        <button class="btn-icon" style="color:white; font-size:30px;" onclick="switchCamera()">🔄</button>
+    </div>
+</div>
+
 <div class="footer">
-    <button id="recordBtn">🎤</button>
-    <div id="msgInfo">اضغط للتحدث</div>
+    <div class="input-group">
+        <button class="btn-icon" onclick="openCamera()">📷</button>
+        <button class="btn-icon" onclick="document.getElementById('fileInput').click()">📎</button>
+        <input type="file" id="fileInput" hidden onchange="sendFile(this.files[0])">
+        <input type="text" id="textMsg" placeholder="رسالة">
+    </div>
+    
+    <button id="mainBtn" class="main-btn">🎤</button>
 </div>
 
 <script>
-    let audioCtx;
-    let processor;
-    let streamObj;
-    let audioLeft = [];
-    let audioLength = 0;
-    let isRecording = false;
+    // --- متغيرات الصوت (كودك الناجح) ---
+    let audioCtx, processor, streamObj, audioLeft = [], audioLength = 0, isRecording = false;
+    const mainBtn = document.getElementById('mainBtn');
+    const textInput = document.getElementById('textMsg');
 
-    const btn = document.getElementById('recordBtn');
-    const info = document.getElementById('msgInfo');
-    const area = document.getElementById('chatArea');
-
-    btn.onclick = async () => {
-        if (isRecording) {
-            isRecording = false;
-            btn.classList.remove('recording-active');
-            btn.innerHTML = "🎤";
-            info.innerText = "تم الحفظ بنجاح ✅";
-            
-            if (processor) processor.disconnect();
-            if (streamObj) streamObj.getTracks().forEach(track => track.stop());
-            
-            // تجميع قنوات الصوت الخام
-            const buffer = new Float32Array(audioLength);
-            let offset = 0;
-            for (let i = 0; i < audioLeft.length; i++) {
-                buffer.set(audioLeft[i], offset);
-                offset += audioLeft[i].length;
-            }
-            
-            const wavBuffer = createWavBlob(buffer, audioCtx.sampleRate);
-            const url = URL.createObjectURL(wavBuffer);
-            
-            const card = document.createElement('div');
-            card.className = 'audio-card';
-            card.innerHTML = `
-                <audio src="${url}" controls preload="auto"></audio>
-                <div style="margin-top:10px; font-weight:bold; color:#075e54;">تسجيل جديد ✅</div>
-            `;
-            area.appendChild(card);
-            setTimeout(() => { area.scrollTop = area.scrollHeight; }, 100);
+    // --- وظيفة زر الإرسال / الميكروفون ---
+    mainBtn.onclick = async () => {
+        if (textInput.value.trim() !== "" && !isRecording) {
+            sendText();
             return;
         }
 
+        if (isRecording) {
+            stopMic();
+        } else {
+            startMic();
+        }
+    };
+
+    // تغيير الرمز عند الكتابة
+    textInput.oninput = () => {
+        mainBtn.innerHTML = textInput.value.trim() !== "" ? "🚀" : "🎤";
+    };
+
+    function sendText() {
+        addMsg(textInput.value, 'sent');
+        textInput.value = "";
+        mainBtn.innerHTML = "🎤";
+    }
+
+    async function startMic() {
         try {
             streamObj = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const source = audioCtx.createMediaStreamSource(streamObj);
-            
-            // معالجة تدفق الصوت بشكل فوري وتخطي مشاكل الحاويات المغلقة في الأندرويد
             processor = audioCtx.createScriptProcessor(4096, 1, 1);
-            
-            audioLeft = [];
-            audioLength = 0;
-            isRecording = true;
+            audioLeft = []; audioLength = 0; isRecording = true;
 
             processor.onaudioprocess = (e) => {
                 if (!isRecording) return;
@@ -87,50 +106,96 @@
                 audioLeft.push(new Float32Array(left));
                 audioLength += left.length;
             };
+            source.connect(processor); processor.connect(audioCtx.destination);
+            mainBtn.classList.add('recording');
+        } catch (e) { alert("الميكروفون مطلوب"); }
+    }
 
-            source.connect(processor);
-            processor.connect(audioCtx.destination);
-
-            btn.classList.add('recording-active');
-            btn.innerHTML = "⏹️";
-            info.innerText = "جاري التسجيل... اضغط للإيقاف";
-
-        } catch (err) {
-            alert("فشل بدء التسجيل، يرجى التحقق من أذونات الميكروفون للموقع.");
+    function stopMic() {
+        isRecording = false;
+        mainBtn.classList.remove('recording');
+        if (processor) processor.disconnect();
+        if (streamObj) streamObj.getTracks().forEach(t => t.stop());
+        
+        const buffer = new Float32Array(audioLength);
+        let offset = 0;
+        for (let i = 0; i < audioLeft.length; i++) {
+            buffer.set(audioLeft[i], offset);
+            offset += audioLeft[i].length;
         }
-    };
+        const url = URL.createObjectURL(createWavBlob(buffer, audioCtx.sampleRate));
+        addMsg(`<audio src="${url}" controls></audio>`, 'sent');
+    }
 
-    // دالة إنشاء ترويسة ملف WAV ليتعرف عليه المشغل وتحديد الوقت بدقة
+    // --- الكاميرا والملفات ---
+    let currentFacingMode = "user";
+    function openCamera() {
+        document.getElementById('cameraPreview').style.display = 'flex';
+        startVideo();
+    }
+
+    async function startVideo() {
+        if (streamObj) streamObj.getTracks().forEach(t => t.stop());
+        streamObj = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
+        document.getElementById('video').srcObject = streamObj;
+    }
+
+    function switchCamera() {
+        currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+        startVideo();
+    }
+
+    function takePhoto() {
+        const video = document.getElementById('video');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        addMsg(`<img src="${canvas.toDataURL()}" style="width:100%; border-radius:10px;">`, 'sent');
+        closeCamera();
+    }
+
+    function closeCamera() {
+        document.getElementById('cameraPreview').style.display = 'none';
+        if (streamObj) streamObj.getTracks().forEach(t => t.stop());
+    }
+
+    function sendFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (file.type.startsWith('image/')) {
+                addMsg(`<img src="${e.target.result}" style="width:100%; border-radius:10px;">`, 'sent');
+            } else {
+                addMsg(`📎 ملف: ${file.name}`, 'sent');
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function addMsg(content, type) {
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        div.innerHTML = content;
+        document.getElementById('chatBox').appendChild(div);
+        document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+    }
+
+    // دالة WAV (كودك الأصلي)
     function createWavBlob(samples, sampleRate) {
         const buffer = new ArrayBuffer(44 + samples.length * 2);
         const view = new DataView(buffer);
-        
-        const writeString = (view, offset, string) => {
-            for (let i = 0; i < string.length; i++) {
-                view.setUint8(offset + i, string.charCodeAt(i));
-            }
-        };
-
-        writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + samples.length * 2, true);
-        writeString(view, 8, 'WAVE');
-        writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true);
-        view.setUint16(22, 1, true);
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * 2, true);
-        view.setUint16(32, 2, true);
-        view.setUint16(34, 16, true);
-        writeString(view, 36, 'data');
-        view.setUint32(40, samples.length * 2, true);
-
+        const writeString = (v, o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+        writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(view, 8, 'WAVE'); writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+        writeString(view, 36, 'data'); view.setUint32(40, samples.length * 2, true);
         let offset = 44;
         for (let i = 0; i < samples.length; i++, offset += 2) {
             let s = Math.max(-1, Math.min(1, samples[i]));
             view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
         }
-
         return new Blob([view], { type: 'audio/wav' });
     }
 </script>
