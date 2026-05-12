@@ -2,75 +2,99 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>اختبار الميكروفون فقط</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>وحدة اختبار الميكروفون - Zeine</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f2f5; }
-        .test-box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-        button { padding: 15px 30px; font-size: 18px; cursor: pointer; border: none; border-radius: 10px; margin: 10px; color: white; font-weight: bold; }
-        #startBtn { background: #25d366; }
-        #muteBtn { background: #075e54; display: none; }
-        .status { margin-top: 20px; color: #555; }
-        .indicator { width: 50px; height: 50px; border-radius: 50%; background: #ccc; margin: 20px auto; transition: 0.3s; }
-        .recording { background: #ff4d4d; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        body { 
+            font-family: sans-serif; background: #efe7de; 
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; height: 100vh; margin: 0;
+        }
+        .test-card {
+            background: white; padding: 30px; border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center; width: 80%; max-width: 400px;
+        }
+        .mic-icon {
+            font-size: 60px; margin-bottom: 20px; transition: 0.3s;
+            display: inline-block; padding: 20px; border-radius: 50%;
+            background: #f0f0f0;
+        }
+        .active { background: #dcf8c6; color: #25d366; transform: scale(1.1); }
+        .muted { background: #ffdada; color: #ff4d4d; }
+
+        button {
+            width: 100%; padding: 15px; border: none; border-radius: 12px;
+            font-size: 18px; font-weight: bold; cursor: pointer;
+            transition: 0.2s; margin-top: 10px;
+        }
+        .btn-start { background: #075e54; color: white; }
+        .btn-toggle { background: #25d366; color: white; display: none; }
+        .status-text { margin-top: 15px; font-size: 14px; color: #666; }
     </style>
 </head>
 <body>
 
-    <div class="test-box">
-        <h2>اختبار الميكروفون 🎤</h2>
-        <div id="indicator" class="indicator"></div>
-        <button id="startBtn">بدء الاختبار</button>
-        <button id="muteBtn">كتم الصوت</button>
-        <div class="status" id="status">اضغط على "بدء الاختبار" واسمح للمتصفح بالوصول للميكروفون</div>
+    <div class="test-card">
+        <div id="micVisual" class="mic-icon">🎤</div>
+        <h2 id="title">اختبار الصوت</h2>
+        <p id="status" class="status-text">اضغط على الزر للبدء</p>
+        
+        <button id="startBtn" class="btn-start">تشغيل الميكروفون</button>
+        <button id="toggleBtn" class="btn-toggle">كتم الصوت</button>
+        
+        <audio id="monitor" autoplay></audio>
     </div>
-
-    <audio id="audioPlayback" autoplay></audio>
 
     <script>
         const startBtn = document.getElementById('startBtn');
-        const muteBtn = document.getElementById('muteBtn');
+        const toggleBtn = document.getElementById('toggleBtn');
         const status = document.getElementById('status');
-        const indicator = document.getElementById('indicator');
-        const audioPlayback = document.getElementById('audioPlayback');
+        const micVisual = document.getElementById('micVisual');
+        const monitor = document.getElementById('monitor');
 
-        let stream = null;
+        let audioStream = null;
 
+        // 1. دالة طلب الوصول للميكروفون
         startBtn.onclick = async () => {
             try {
-                // طلب الميكروفون فقط
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
-                // ربط الميكروفون بعنصر الصوت لتسمع نفسك (Echo)
-                audioPlayback.srcObject = stream;
+                // ربط الميكروفون بسماعة الهاتف لتجربة الأداء
+                monitor.srcObject = audioStream;
                 
                 // تحديث الواجهة
                 startBtn.style.display = 'none';
-                muteBtn.style.display = 'inline-block';
-                indicator.classList.add('recording');
-                status.innerText = "الاختبار يعمل! تحدث الآن ويجب أن تسمع صوتك من السماعة.";
+                toggleBtn.style.display = 'block';
+                micVisual.classList.add('active');
+                status.innerText = "الميكروفون يعمل. تحدث الآن لتسمع صوتك.";
                 
             } catch (err) {
-                status.innerText = "خطأ: لم نتمكن من الوصول للميكروفون. (تأكد من الصلاحيات)";
+                status.innerText = "خطأ: لم يتم منح إذن الوصول للميكروفون.";
                 console.error(err);
             }
         };
 
-        muteBtn.onclick = () => {
-            if (stream) {
-                const audioTrack = stream.getAudioTracks()[0];
+        // 2. دالة كتم/تشغيل الصوت (وهي ما ستحتاجه في تطبيقك)
+        toggleBtn.onclick = () => {
+            if (audioStream) {
+                const audioTrack = audioStream.getAudioTracks()[0];
+                
+                // عكس حالة التشغيل
                 audioTrack.enabled = !audioTrack.enabled;
                 
                 if (audioTrack.enabled) {
-                    muteBtn.innerText = "كتم الصوت";
-                    muteBtn.style.background = "#075e54";
-                    indicator.style.opacity = "1";
+                    toggleBtn.innerText = "كتم الصوت";
+                    toggleBtn.style.background = "#25d366";
+                    micVisual.className = "mic-icon active";
+                    micVisual.innerText = "🎤";
                     status.innerText = "الميكروفون يعمل الآن.";
                 } else {
-                    muteBtn.innerText = "إلغاء الكتم";
-                    muteBtn.style.background = "#ff4d4d";
-                    indicator.style.opacity = "0.3";
-                    status.innerText = "تم كتم الميكروفون برمجيًا.";
+                    toggleBtn.innerText = "تشغيل الصوت";
+                    toggleBtn.style.background = "#ff4d4d";
+                    micVisual.className = "mic-icon muted";
+                    micVisual.innerText = "🔇";
+                    status.innerText = "تم كتم الصوت برمجياً.";
                 }
             }
         };
