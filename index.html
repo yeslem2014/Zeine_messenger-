@@ -3,91 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>نظام التواصل الاحترافي</title>
+    <title>نظام التواصل - النسخة النهائية</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        * { box-sizing: border-box; touch-action: manipulation; }
         body { font-family: sans-serif; background: #efe7de; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         header { background: #075e54; color: white; padding: 12px; text-align: center; font-weight: bold; flex-shrink: 0; }
         
-        #videoArea { width: 100%; display: none; background: #000; height: 240px; flex-shrink: 0; }
+        #videoArea { width: 100%; display: none; background: #000; height: 260px; flex-shrink: 0; }
         video { width: 100%; height: 100%; object-fit: cover; }
 
-        #chat { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5; }
-        .msg { background: #dcf8c6; padding: 10px; border-radius: 12px; align-self: flex-end; max-width: 80%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5; }
+        .msg { background: #dcf8c6; padding: 10px; border-radius: 12px; align-self: flex-end; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
-        .footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #ccc; flex-shrink: 0; width: 100%; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
-        button { background: none; border: none; padding: 5px; cursor: pointer; color: #54656f; font-size: 22px; transition: 0.2s; }
+        .footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #ccc; flex-shrink: 0; width: 100%; position: relative; z-index: 10; }
+        .btn { background: none; border: none; padding: 8px; cursor: pointer; color: #54656f; font-size: 22px; outline: none; }
         .active-mic { color: #e74c3c !important; }
         .active-vid { color: #128c7e !important; }
-        input { flex: 1; padding: 10px 15px; border-radius: 25px; border: 1px solid #fff; outline: none; font-size: 16px; }
+        input { flex: 1; padding: 12px 15px; border-radius: 25px; border: 1px solid #fff; outline: none; font-size: 16px; min-width: 0; }
     </style>
 </head>
 <body>
 
     <header>نظام تواصل العائلة</header>
 
-    <div id="videoArea">
-        <video id="v" autoplay playsinline></video>
-    </div>
+    <div id="videoArea"><video id="v" autoplay playsinline></video></div>
 
     <div id="chat"></div>
 
     <div class="footer">
-        <button id="tglCam"><i class="fas fa-sync-alt"></i></button>
-        <button id="tglVid"><i class="fas fa-video"></i></button>
-        <button id="tglMic"><i class="fas fa-microphone"></i></button>
+        <button class="btn" id="btnSwitch"><i class="fas fa-sync-alt"></i></button>
+        <button class="btn" id="btnVid"><i class="fas fa-video"></i></button>
+        <button class="btn" id="btnMic"><i class="fas fa-microphone"></i></button>
         <input type="text" id="m" placeholder="اكتب رسالة..." enterkeyhint="send">
-        <button id="sendBtn"><i class="fas fa-paper-plane" style="color:#128c7e"></i></button>
+        <button class="btn" id="btnSend"><i class="fas fa-paper-plane" style="color:#128c7e"></i></button>
     </div>
 
     <script>
         const v = document.getElementById('v'), chat = document.getElementById('chat'), m = document.getElementById('m');
-        const tglVid = document.getElementById('tglVid'), tglMic = document.getElementById('tglMic');
+        const btnVid = document.getElementById('btnVid'), btnMic = document.getElementById('btnMic');
         let stream = null, isRear = true;
 
         async function start(rear) {
             if (stream) stream.getTracks().forEach(t => t.stop());
+            
+            // التعديل الجوهري: طلب الميكروفون والكاميرا مع إعدادات تقليل الضجيج
+            const constraints = {
+                video: { facingMode: rear ? "environment" : "user" },
+                audio: { 
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
+            };
+
             try {
-                // إجبار الكاميرا الخلفية والميكروفون في طلب واحد
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: rear ? { exact: "environment" } : "user" },
-                    audio: { echoCancellation: true, noiseSuppression: true }
-                });
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
                 v.srcObject = stream;
-                v.muted = false; // فك الكتم لضمان عمل الميكروفون
+                // إجبار تشغيل الصوت والفيديو
+                v.muted = false; 
+                v.play();
+                
                 document.getElementById('videoArea').style.display = "block";
-                tglVid.classList.add('active-vid');
-                tglMic.classList.add('active-mic');
+                btnVid.classList.add('active-vid');
+                btnMic.classList.add('active-mic');
             } catch (err) {
-                // محاولة أخيرة إذا رفض المتصفح الأمر 'exact'
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
-                v.srcObject = stream;
-                document.getElementById('videoArea').style.display = "block";
+                console.error(err);
+                alert("يرجى التأكد من الضغط على 'سماح' في المتصفح وتجربة زر التبديل.");
             }
         }
 
-        tglVid.onclick = () => {
+        btnVid.onclick = () => {
             if (stream) {
                 stream.getTracks().forEach(t => t.stop());
                 stream = null;
                 document.getElementById('videoArea').style.display = "none";
-                tglVid.classList.remove('active-vid');
-                tglMic.classList.remove('active-mic');
+                btnVid.classList.remove('active-vid');
+                btnMic.classList.remove('active-mic');
             } else {
                 start(isRear);
             }
         };
 
-        document.getElementById('tglCam').onclick = () => {
+        document.getElementById('btnSwitch').onclick = () => {
             isRear = !isRear;
             start(isRear);
         };
 
-        tglMic.onclick = () => {
+        btnMic.onclick = () => {
             if (stream) {
                 const at = stream.getAudioTracks()[0];
                 at.enabled = !at.enabled;
-                tglMic.classList.toggle('active-mic', at.enabled);
+                btnMic.classList.toggle('active-mic', at.enabled);
             }
         };
 
@@ -101,7 +108,7 @@
                 chat.scrollTop = chat.scrollHeight;
             }
         }
-        document.getElementById('sendBtn').onclick = send;
+        document.getElementById('btnSend').onclick = send;
         m.onkeypress = (e) => { if(e.key === "Enter") send(); };
     </script>
 </body>
