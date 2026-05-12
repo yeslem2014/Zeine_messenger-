@@ -8,94 +8,131 @@
         body { font-family: sans-serif; background: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         .header { background: #075e54; color: white; padding: 25px; text-align: center; font-size: 24px; font-weight: bold; }
         #chatArea { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-        
-        /* فقاعة صوتية ضخمة وواضحة جداً */
-        .audio-card { 
-            background: #ffffff; padding: 25px; border-radius: 20px; 
-            width: 90%; align-self: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            border-right: 12px solid #25d366;
-        }
-
-        audio { width: 100%; height: 65px; outline: none; }
-
-        /* أزرار تحكم عملاقة لراحة اليد والعين */
+        .audio-card { background: #ffffff; padding: 25px; border-radius: 20px; width: 90%; align-self: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border-right: 12px solid #25d366; box-sizing: border-box; }
+        audio { width: 100%; height: 65px; outline: none; display: block; }
         .footer { background: #f0f0f0; padding: 40px; text-align: center; border-top: 2px solid #ccc; }
-        
-        #recordBtn { 
-            width: 120px; height: 120px; border-radius: 50%; border: none; 
-            background: #075e54; color: white; font-size: 50px; cursor: pointer;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3); transition: 0.2s;
-        }
-
+        #recordBtn { width: 120px; height: 120px; border-radius: 50%; border: none; background: #075e54; color: white; font-size: 50px; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.3); display: inline-flex; align-items: center; justify-content: center; }
         .recording-active { background: #d32f2f !important; transform: scale(1.15); }
         #msgInfo { margin-top: 20px; font-size: 22px; color: #000; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="header">نظام Zeine الصوتي</div>
-
+<div class="header">نظام Zeine المطور</div>
 <div id="chatArea"></div>
-
 <div class="footer">
     <button id="recordBtn">🎤</button>
     <div id="msgInfo">اضغط للتحدث</div>
 </div>
 
 <script>
-    let mediaRec;
+    let audioCtx;
+    let processor;
     let streamObj;
-    let chunks = [];
+    let audioLeft = [];
+    let audioLength = 0;
+    let isRecording = false;
 
     const btn = document.getElementById('recordBtn');
     const info = document.getElementById('msgInfo');
     const area = document.getElementById('chatArea');
 
     btn.onclick = async () => {
-        if (mediaRec && mediaRec.state === "recording") {
-            mediaRec.stop();
-            streamObj.getTracks().forEach(track => track.stop());
+        if (isRecording) {
+            isRecording = false;
             btn.classList.remove('recording-active');
             btn.innerHTML = "🎤";
             info.innerText = "تم الحفظ بنجاح ✅";
+            
+            if (processor) processor.disconnect();
+            if (streamObj) streamObj.getTracks().forEach(track => track.stop());
+            
+            // تجميع قنوات الصوت الخام
+            const buffer = new Float32Array(audioLength);
+            let offset = 0;
+            for (let i = 0; i < audioLeft.length; i++) {
+                buffer.set(audioLeft[i], offset);
+                offset += audioLeft[i].length;
+            }
+            
+            const wavBuffer = createWavBlob(buffer, audioCtx.sampleRate);
+            const url = URL.createObjectURL(wavBuffer);
+            
+            const card = document.createElement('div');
+            card.className = 'audio-card';
+            card.innerHTML = `
+                <audio src="${url}" controls preload="auto"></audio>
+                <div style="margin-top:10px; font-weight:bold; color:#075e54;">تسجيل جديد ✅</div>
+            `;
+            area.appendChild(card);
+            setTimeout(() => { area.scrollTop = area.scrollHeight; }, 100);
             return;
         }
 
         try {
-            // طلب الوصول للميكروفون بإعدادات تجبر المتصفح على التركيز
-            streamObj = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+            streamObj = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioCtx.createMediaStreamSource(streamObj);
             
-            // استخدام WebM مع Opus كونه التنسيق الأكثر استقراراً لسامسونج
-            mediaRec = new MediaRecorder(streamObj, { mimeType: 'audio/webm;codecs=opus' });
-            chunks = [];
+            // معالجة تدفق الصوت بشكل فوري وتخطي مشاكل الحاويات المغلقة في الأندرويد
+            processor = audioCtx.createScriptProcessor(4096, 1, 1);
+            
+            audioLeft = [];
+            audioLength = 0;
+            isRecording = true;
 
-            mediaRec.ondataavailable = (e) => {
-                if (e.data.size > 0) chunks.push(e.data);
+            processor.onaudioprocess = (e) => {
+                if (!isRecording) return;
+                const left = e.inputBuffer.getChannelData(0);
+                audioLeft.push(new Float32Array(left));
+                audioLength += left.length;
             };
 
-            mediaRec.onstop = () => {
-                const blob = new Blob(chunks, { type: 'audio/webm' });
-                const url = URL.createObjectURL(blob);
-                
-                const card = document.createElement('div');
-                card.className = 'audio-card';
-                card.innerHTML = `<audio src="${url}" controls></audio><div style="margin-top:10px; font-weight:bold; color:#075e54;">تسجيل صوتي جديد</div>`;
-                
-                area.appendChild(card);
-                area.scrollTop = area.scrollHeight;
-            };
+            source.connect(processor);
+            processor.connect(audioCtx.destination);
 
-            // إجبار المتصفح على جمع البيانات كل 500 ملي ثانية لضمان امتلاء الملف
-            mediaRec.start(500); 
             btn.classList.add('recording-active');
             btn.innerHTML = "⏹️";
             info.innerText = "جاري التسجيل... اضغط للإيقاف";
 
         } catch (err) {
-            alert("خطأ: يرجى السماح للمتصفح بالوصول للميكروفون من إعدادات سامسونج.");
+            alert("فشل بدء التسجيل، يرجى التحقق من أذونات الميكروفون للموقع.");
         }
     };
-</script>
 
+    // دالة إنشاء ترويسة ملف WAV ليتعرف عليه المشغل وتحديد الوقت بدقة
+    function createWavBlob(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+        
+        const writeString = (view, offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        };
+
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 2) {
+            let s = Math.max(-1, Math.min(1, samples[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+
+        return new Blob([view], { type: 'audio/wav' });
+    }
+</script>
 </body>
 </html>
