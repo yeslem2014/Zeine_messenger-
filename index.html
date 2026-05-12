@@ -3,91 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>الحل النهائي - مسجل صوتي</title>
+    <title>Zeine - المسجل الصوتي المطور</title>
     <style>
-        body { margin: 0; background: #e5ddd5; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        body { margin: 0; background: #e5ddd5; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         header { background: #075e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
-        
-        /* ساحة الرسائل */
-        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .audio-msg { background: #dcf8c6; padding: 10px; border-radius: 15px; align-self: flex-end; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
-        
-        /* منطقة التحكم - ميكروفون فقط */
-        .controls { height: 120px; background: #f0f0f0; border-top: 1px solid #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        
-        #recordBtn { 
-            width: 75px; height: 75px; border-radius: 50%; border: none; 
-            background: #075e54; color: white; font-size: 30px; cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.3s;
-        }
-        .recording { background: #ff4d4d !important; transform: scale(1.1); animation: blink 1s infinite; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-        
-        .status { margin-top: 8px; font-size: 14px; color: #555; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .audio-msg { background: #dcf8c6; padding: 10px; border-radius: 12px; align-self: flex-end; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .footer { height: 140px; background: #f0f0f0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-top: 1px solid #ccc; }
+        #micBtn { width: 70px; height: 70px; border-radius: 50%; border: none; background: #075e54; color: white; font-size: 28px; cursor: pointer; }
+        .recording { background: #ff4d4d !important; animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        #status { margin-top: 10px; font-size: 14px; color: #333; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<header>نظام التواصل الصوتي الفوري</header>
+<header>نظام تواصل العائلة - Zeine</header>
+<div id="chat"></div>
 
-<div id="chat">
-    </div>
-
-<div class="controls">
-    <button id="recordBtn">🎤</button>
-    <div id="status" class="status">اضغط للبدء</div>
+<div class="footer">
+    <button id="micBtn">🎤</button>
+    <div id="status">اضغط للتحدث</div>
 </div>
 
 <script>
-    const recordBtn = document.getElementById('recordBtn');
-    const chat = document.getElementById('chat');
-    const status = document.getElementById('status');
+    const _btn = document.getElementById('micBtn');
+    const _chat = document.getElementById('chat');
+    const _status = document.getElementById('status');
+    
+    let recorder, chunks = [];
 
-    let mediaRecorder;
-    let audioChunks = [];
-
-    recordBtn.onclick = async () => {
-        // إذا لم نكن نسجل حالياً، نبدأ التسجيل
-        if (!mediaRecorder || mediaRecorder.state === "inactive") {
+    _btn.onclick = async () => {
+        if (!recorder || recorder.state === "inactive") {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
+                // استخدام إعدادات تضمن جودة الصوت وتوافقه
+                recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+                chunks = [];
 
-                mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data);
+                recorder.ondataavailable = e => {
+                    if (e.data.size > 0) chunks.push(e.data);
                 };
 
-                mediaRecorder.onstop = () => {
-                    // تحويل البيانات المسجلة إلى ملف صوتي حقيقي
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    
-                    // إنشاء عنصر الرسالة وإضافته للدردشة
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'audio-msg';
-                    msgDiv.innerHTML = `<audio src="${audioUrl}" controls></audio>`;
-                    chat.appendChild(msgDiv);
-                    chat.scrollTop = chat.scrollHeight; // النزول لآخر رسالة
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'audio/webm' });
+                    const url = URL.createObjectURL(blob);
+                    addMessage(url);
+                    // تنظيف المسارات لتحرير الميكروفون
+                    stream.getTracks().forEach(t => t.stop());
                 };
 
-                mediaRecorder.start();
-                recordBtn.classList.add('recording');
-                recordBtn.innerText = "🛑";
-                status.innerText = "جاري التسجيل... اضغط للتوقف والإرسال";
-            } catch (err) {
-                alert("يرجى تفعيل صلاحية الميكروفون!");
-            }
-        } 
-        // إذا ضغطنا والمسجل يعمل، نقوم بإيقافه وحفظ الملف
-        else {
-            mediaRecorder.stop();
-            recordBtn.classList.remove('recording');
-            recordBtn.innerText = "🎤";
-            status.innerText = "تم الإرسال! اضغط للبدء من جديد";
+                recorder.start(100); // التقاط البيانات كل 100 ملي ثانية لضمان عدم الضياع
+                _btn.classList.add('recording');
+                _btn.innerText = "🛑";
+                _status.innerText = "جاري التسجيل... تحدث الآن";
+            } catch (err) { alert("تأكد من إعطاء صلاحية الميكروفون"); }
+        } else {
+            // إضافة تأخير بسيط (200ms) قبل الإيقاف لضمان التقاط نهاية الجملة
+            _status.innerText = "يتم المعالجة والإرسال...";
+            setTimeout(() => {
+                recorder.stop();
+                _btn.classList.remove('recording');
+                _btn.innerText = "🎤";
+                _status.innerText = "تم الإرسال! اضغط للتحدث مجدداً";
+            }, 200);
         }
     };
-</script>
 
+    function addMessage(url) {
+        const div = document.createElement('div');
+        div.className = 'audio-msg';
+        div.innerHTML = `<audio src="${url}" controls></audio>`;
+        _chat.appendChild(div);
+        _chat.scrollTop = _chat.scrollHeight;
+    }
+</script>
 </body>
 </html>
