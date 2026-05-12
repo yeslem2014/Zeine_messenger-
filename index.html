@@ -3,188 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zeine Messenger</title>
+    <title>Zeine Messenger Pro</title>
     <style>
-        :root {
-            --primary-color: #075e54;
-            --bg-color: #e5ddd5;
-            --msg-bg: #ffffff;
-            --accent: #25d366;
+        body { font-family: sans-serif; background-color: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .header { background: #075e54; color: white; padding: 25px; text-align: center; font-size: 22px; font-weight: bold; }
+        
+        /* منطقة الرسائل - جعلتها واضحة وكبيرة */
+        #chatBox { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        
+        .voice-bubble { 
+            background: white; padding: 20px; border-radius: 20px 20px 0 20px; 
+            align-self: flex-end; width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-right: 8px solid #25d366;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+        audio { width: 100%; height: 55px; } /* شريط صوت ضخم وسهل التحكم */
+
+        /* منطقة التحكم - أزرار عملاقة */
+        .bottom-bar { background: #f0f0f0; padding: 40px 20px; border-top: 2px solid #ddd; text-align: center; }
+        
+        #recordBtn { 
+            width: 100px; height: 100px; border-radius: 50%; border: none; 
+            background: #075e54; color: white; font-size: 40px; cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3); transition: 0.3s;
         }
 
-        /* رأس الصفحة كبير وواضح */
-        .header {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            font-size: 1.5rem;
-            font-weight: bold;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-
-        /* منطقة الدردشة */
-        #chatArea {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        /* فقاعة الصوت - كبيرة ومريحة */
-        .audio-bubble {
-            background-color: var(--msg-bg);
-            padding: 15px;
-            border-radius: 18px 18px 0 18px;
-            align-self: flex-end;
-            width: 85%; /* عرض كبير مريح */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            border-right: 6px solid var(--accent);
-        }
-
-        audio {
-            width: 100%;
-            height: 45px; /* زيادة الطول للنقر السهل */
-        }
-
-        /* لوحة التحكم السفلية */
-        .controls-panel {
-            background-color: #f0f0f0;
-            padding: 30px 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            border-top: 1px solid #ccc;
-        }
-
-        #micButton {
-            width: 85px; /* زر كبير جداً */
-            height: 85px;
-            border-radius: 50%;
-            border: none;
-            background-color: var(--primary-color);
-            color: white;
-            font-size: 32px;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: transform 0.2s, background-color 0.3s;
-        }
-
-        #micButton.active {
-            background-color: #e74c3c;
-            transform: scale(1.1);
-            animation: pulse 1.2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); }
-            70% { box-shadow: 0 0 0 20px rgba(231, 76, 60, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
-        }
-
-        #statusText {
-            margin-top: 15px;
-            font-size: 16px;
-            color: #444;
-            font-weight: 500;
-        }
+        .recording-now { background: #d32f2f !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        
+        #infoText { margin-top: 20px; font-size: 18px; color: #333; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="header">نظام Zeine الصوتي</div>
+<div class="header">نظام Zeine المطور</div>
 
-    <div id="chatArea">
-        </div>
+<div id="chatBox"></div>
 
-    <div class="controls-panel">
-        <button id="micButton">🎤</button>
-        <p id="statusText">انقر للتحدث</p>
-    </div>
+<div class="bottom-bar">
+    <button id="recordBtn">🎤</button>
+    <div id="infoText">اضغط لبدء التحدث</div>
+</div>
 
-    <script>
-        let mediaRecorder;
-        let audioChunks = [];
+<script>
+    let rec;
+    let stream;
+    let audioChunks = [];
 
-        const micButton = document.getElementById('micButton');
-        const statusText = document.getElementById('statusText');
-        const chatArea = document.getElementById('chatArea');
+    const btn = document.getElementById('recordBtn');
+    const info = document.getElementById('infoText');
+    const box = document.getElementById('chatBox');
 
-        micButton.onclick = async () => {
-            if (mediaRecorder && mediaRecorder.state === "recording") {
-                stopRecording();
-            } else {
-                startRecording();
-            }
-        };
+    btn.onclick = async () => {
+        if (rec && rec.state === "recording") {
+            rec.stop();
+            btn.classList.remove('recording-now');
+            btn.innerHTML = "🎤";
+            info.innerText = "تم الحفظ بنجاح";
+            return;
+        }
 
-        async function startRecording() {
+        try {
+            // طلب الميكروفون بأعلى جودة ممكنة لسامسونج
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // محاولة استخدام أفضل صيغة يدعمها المتصفح
+            const types = ["audio/webm", "audio/mp4", "audio/ogg", "audio/wav"];
+            let supportedType = types.find(t => MediaRecorder.isTypeSupported(t));
+
+            rec = new MediaRecorder(stream, { mimeType: supportedType });
             audioChunks = [];
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            rec.ondataavailable = e => audioChunks.push(e.data);
+
+            rec.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: supportedType });
+                const audioUrl = URL.createObjectURL(audioBlob);
                 
-                // توافقية سامسونج العالية
-                mediaRecorder = new MediaRecorder(stream);
-                
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
-                };
+                // إنشاء الفقاعة
+                const div = document.createElement('div');
+                div.className = 'voice-bubble';
+                div.innerHTML = `
+                    <audio src="${audioUrl}" controls></audio>
+                    <div style="margin-top:10px; color:#666; font-size:14px;">تسجيل جديد ✅</div>
+                `;
+                box.appendChild(div);
+                box.scrollTop = box.scrollHeight;
 
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    const url = URL.createObjectURL(blob);
-                    addMessageToUI(url);
-                    stream.getTracks().forEach(track => track.stop());
-                };
+                // إيقاف الميكروفون تماماً
+                stream.getTracks().forEach(t => t.stop());
+            };
 
-                mediaRecorder.start();
-                updateUI(true);
-            } catch (err) {
-                alert("يرجى تفعيل الميكروفون من إعدادات المتصفح");
-            }
+            rec.start();
+            btn.classList.add('recording-now');
+            btn.innerHTML = "⏹️";
+            info.innerText = "جاري التسجيل... انقر للإيقاف";
+
+        } catch (err) {
+            alert("خطأ: يرجى التأكد من تفعيل الميكروفون في إعدادات الهاتف لمتصفح كروم");
         }
+    };
+</script>
 
-        function stopRecording() {
-            mediaRecorder.stop();
-            updateUI(false);
-        }
-
-        function addMessageToUI(url) {
-            const bubble = document.createElement('div');
-            bubble.className = 'audio-bubble';
-            bubble.innerHTML = `
-                <audio src="${url}" controls></audio>
-                <div style="text-align:left; font-size:11px; color:#888; margin-top:5px;">تم الحفظ ✓</div>
-            `;
-            chatArea.appendChild(bubble);
-            chatArea.scrollTop = chatArea.scrollHeight;
-        }
-
-        function updateUI(isRecording) {
-            if (isRecording) {
-                micButton.classList.add('active');
-                micButton.innerHTML = "⏹️";
-                statusText.innerText = "جاري التسجيل... انقر للإيقاف";
-            } else {
-                micButton.classList.remove('active');
-                micButton.innerHTML = "🎤";
-                statusText.innerText = "تم الحفظ. اضغط للتحدث مجدداً";
-            }
-        }
-    </script>
 </body>
 </html>
