@@ -1,1 +1,136 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نظام العائلة V3</title>
+    <style>
+        /* كود الحماية لضمان ظهور العناصر */
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body, html { height: 100%; width: 100%; overflow: hidden; background: #efe7de; font-family: sans-serif; }
+        
+        header { height: 55px; background: #075e54; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; position: relative; z-index: 2000; }
 
+        #videoArea { position: absolute; top: 55px; left: 0; right: 0; height: 230px; background: #000; display: none; z-index: 1000; border-bottom: 3px solid #25d366; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+
+        #chat { position: absolute; top: 55px; bottom: 85px; left: 0; right: 0; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5; transition: 0.3s; z-index: 500; }
+        
+        .msg { background: white; padding: 10px; border-radius: 12px; align-self: flex-start; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); word-wrap: break-word; font-size: 15px; }
+        .my-msg { background: #dcf8c6; align-self: flex-end; }
+        .msg img { max-width: 100%; border-radius: 8px; display: block; margin-top: 5px; }
+
+        /* الشريط السفلي - إجبار الظهور */
+        .footer { 
+            position: fixed; bottom: 0; left: 0; right: 0; height: 85px;
+            background: #ffffff !important; display: flex !important; align-items: center; justify-content: space-around;
+            padding: 5px; border-top: 2px solid #25d366; z-index: 3000 !important; visibility: visible !important;
+        }
+
+        .btn-text { 
+            background: #f0f0f0; border: 1px solid #ddd; padding: 6px; 
+            border-radius: 10px; font-weight: bold; font-size: 10px;
+            display: flex; flex-direction: column; align-items: center;
+            min-width: 48px; cursor: pointer; color: #075e54;
+        }
+        .btn-text span { font-size: 20px; margin-bottom: 2px; }
+        .active-btn { background: #25d366 !important; color: white !important; }
+        .muted-btn { background: #ff4d4d !important; color: white !important; }
+
+        input { flex: 1; border: 1px solid #ddd; padding: 12px; border-radius: 25px; outline: none; margin: 0 5px; font-size: 15px; background: #fff; }
+        #sendBtn { background: #128c7e; color: white; border: none; border-radius: 50%; width: 45px; height: 45px; font-weight: bold; font-size: 14px; cursor: pointer; flex-shrink: 0; }
+    </style>
+</head>
+<body>
+
+    <header>نظام تواصل العائلة</header>
+
+    <div id="videoArea"><video id="v" autoplay playsinline muted></video></div>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <div id="chat">
+        <div class="msg">مرحباً بك في نظام العائلة. اضغط على "فيديو" للبدء.</div>
+    </div>
+
+    <div class="footer">
+        <div class="btn-text" id="tglCam"><span>🔄</span>تبديل</div>
+        <div class="btn-text" id="tglMic"><span>🎤</span>صوت</div>
+        <div class="btn-text" id="tglVid"><span>📷</span>فيديو</div>
+        <div class="btn-text" id="takePic"><span>🖼️</span>صورة</div>
+        <input type="text" id="m" placeholder="اكتب..." enterkeyhint="send">
+        <button id="sendBtn">إرسال</button>
+    </div>
+
+    <script>
+        // إجبار المتصفح على تجاوز الـ Cache بمتغيرات جديدة
+        const _v = document.getElementById('v'), _chat = document.getElementById('chat'), _m = document.getElementById('m');
+        const _vArea = document.getElementById('videoArea'), _canvas = document.getElementById('canvas');
+        const _tglVid = document.getElementById('tglVid'), _tglMic = document.getElementById('tglMic');
+
+        let _stream = null, _isRear = true;
+
+        // استعادة الرسائل المحفوظة
+        const savedData = localStorage.getItem('family_chat_v3');
+        if (savedData) { _chat.innerHTML = savedData; _chat.scrollTop = _chat.scrollHeight; }
+
+        async function startSystem() {
+            if (_stream) _stream.getTracks().forEach(t => t.stop());
+            try {
+                _stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: _isRear ? "environment" : "user" },
+                    audio: true
+                });
+                _v.srcObject = _stream;
+                _v.onloadedmetadata = () => { _v.play(); _v.muted = false; };
+                _vArea.style.display = "block";
+                _chat.style.top = "285px";
+                _tglVid.classList.add('active-btn');
+                _tglMic.classList.add('active-btn');
+            } catch (err) { alert("تأكد من السماح للكاميرا في المتصفح"); }
+        }
+
+        _tglVid.onclick = () => {
+            if (_stream) {
+                _stream.getTracks().forEach(t => t.stop());
+                _vArea.style.display = "none";
+                _chat.style.top = "55px";
+                _tglVid.classList.remove('active-btn');
+                _tglMic.classList.remove('active-btn', 'muted-btn');
+                _stream = null;
+            } else { startSystem(); }
+        };
+
+        document.getElementById('tglCam').onclick = () => { _isRear = !_isRear; if(_stream) startSystem(); };
+
+        _tglMic.onclick = () => {
+            if (_stream) {
+                const track = _stream.getAudioTracks()[0];
+                track.enabled = !track.enabled;
+                _tglMic.classList.toggle('muted-btn', !track.enabled);
+                _tglMic.classList.toggle('active-btn', track.enabled);
+            }
+        };
+
+        document.getElementById('takePic').onclick = () => {
+            if (_stream) {
+                _canvas.width = _v.videoWidth; _canvas.height = _v.videoHeight;
+                _canvas.getContext('2d').drawImage(_v, 0, 0);
+                addMessage(`<img src="${_canvas.toDataURL('image/png')}">`);
+            } else { alert("شغل الفيديو أولاً"); }
+        };
+
+        function addMessage(html, isMy = true) {
+            const div = document.createElement('div');
+            div.className = 'msg' + (isMy ? ' my-msg' : '');
+            div.innerHTML = html;
+            _chat.appendChild(div);
+            _chat.scrollTop = _chat.scrollHeight;
+            localStorage.setItem('family_chat_v3', _chat.innerHTML);
+        }
+
+        const handleSend = () => { if (_m.value.trim()) { addMessage(_m.value); _m.value = ""; } };
+        document.getElementById('sendBtn').onclick = handleSend;
+        _m.onkeypress = (e) => { if(e.key === "Enter") handleSend(); };
+    </script>
+</body>
+</html>
