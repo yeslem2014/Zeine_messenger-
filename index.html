@@ -2,102 +2,92 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام التواصل - إصلاح الواجهة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>نظام التواصل الاحترافي</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: sans-serif; background: #efe7de; margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        body { font-family: sans-serif; background: #efe7de; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { background: #075e54; color: white; padding: 12px; text-align: center; font-weight: bold; flex-shrink: 0; }
         
-        /* رأس الصفحة ثابت */
-        header { background: #075e54; color: white; padding: 10px; text-align: center; font-size: 14px; flex-shrink: 0; }
-
-        /* حاوية الفيديو مرنة لكن لا تغطي الشاشة */
-        #videoContainer { width: 100%; display: none; background: #000; height: 220px; flex-shrink: 0; position: relative; }
+        #videoArea { width: 100%; display: none; background: #000; height: 240px; flex-shrink: 0; }
         video { width: 100%; height: 100%; object-fit: cover; }
 
-        /* منطقة الدردشة تأخذ المساحة المتبقية */
-        #chat { flex-grow: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #e5ddd5; }
-        .msg { background: #dcf8c6; padding: 8px 12px; border-radius: 12px; align-self: flex-end; max-width: 80%; font-size: 15px; }
+        #chat { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5; }
+        .msg { background: #dcf8c6; padding: 10px; border-radius: 12px; align-self: flex-end; max-width: 80%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
 
-        /* تذييل الصفحة ثابت في الأسفل تماماً */
-        .footer { background: #f0f0f0; padding: 8px; display: flex; align-items: center; gap: 4px; border-top: 1px solid #ddd; flex-shrink: 0; width: 100%; }
-        .icon-btn { background: none; border: none; padding: 8px; color: #54656f; cursor: pointer; font-size: 20px; }
-        .active-mic { color: #f44336; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.5; } }
-        
-        input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #fff; outline: none; }
-        #sendBtn { color: #00a884; font-size: 24px; }
+        .footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #ccc; flex-shrink: 0; width: 100%; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+        button { background: none; border: none; padding: 5px; cursor: pointer; color: #54656f; font-size: 22px; transition: 0.2s; }
+        .active-mic { color: #e74c3c !important; }
+        .active-vid { color: #128c7e !important; }
+        input { flex: 1; padding: 10px 15px; border-radius: 25px; border: 1px solid #fff; outline: none; font-size: 16px; }
     </style>
 </head>
 <body>
 
     <header>نظام تواصل العائلة</header>
 
-    <div id="videoContainer">
-        <video id="v" autoplay playsinline muted></video>
+    <div id="videoArea">
+        <video id="v" autoplay playsinline></video>
     </div>
 
     <div id="chat"></div>
 
     <div class="footer">
-        <button class="icon-btn" id="tglCam"><i class="fas fa-sync-alt"></i></button>
-        <button class="icon-btn" id="tglVid"><i class="fas fa-video"></i></button>
-        <button class="icon-btn" id="tglMic"><i class="fas fa-microphone" id="micIcon"></i></button>
-        <input type="text" id="m" placeholder="اكتب رسالة...">
-        <button class="icon-btn" id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+        <button id="tglCam"><i class="fas fa-sync-alt"></i></button>
+        <button id="tglVid"><i class="fas fa-video"></i></button>
+        <button id="tglMic"><i class="fas fa-microphone"></i></button>
+        <input type="text" id="m" placeholder="اكتب رسالة..." enterkeyhint="send">
+        <button id="sendBtn"><i class="fas fa-paper-plane" style="color:#128c7e"></i></button>
     </div>
 
     <script>
         const v = document.getElementById('v'), chat = document.getElementById('chat'), m = document.getElementById('m');
+        const tglVid = document.getElementById('tglVid'), tglMic = document.getElementById('tglMic');
         let stream = null, isRear = true;
 
-        async function startMedia(rear) {
+        async function start(rear) {
             if (stream) stream.getTracks().forEach(t => t.stop());
-            
             try {
-                // طلب الكاميرا والميكروفون بأقصى صلاحيات
+                // إجبار الكاميرا الخلفية والميكروفون في طلب واحد
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: rear ? "environment" : "user" },
-                    audio: { echoCancellation: true }
+                    video: { facingMode: rear ? { exact: "environment" } : "user" },
+                    audio: { echoCancellation: true, noiseSuppression: true }
                 });
-                
                 v.srcObject = stream;
-                v.onloadedmetadata = () => v.play();
-                document.getElementById('videoContainer').style.display = "block";
-                updateMicUI(true);
+                v.muted = false; // فك الكتم لضمان عمل الميكروفون
+                document.getElementById('videoArea').style.display = "block";
+                tglVid.classList.add('active-vid');
+                tglMic.classList.add('active-mic');
             } catch (err) {
-                alert("تعذر الوصول: تأكد من إغلاق أي تطبيق آخر يستخدم الكاميرا");
+                // محاولة أخيرة إذا رفض المتصفح الأمر 'exact'
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
+                v.srcObject = stream;
+                document.getElementById('videoArea').style.display = "block";
             }
         }
 
-        function updateMicUI(active) {
-            const icon = document.getElementById('micIcon');
-            icon.classList.toggle('active-mic', active);
-        }
-
-        document.getElementById('tglVid').onclick = () => {
-            if (stream && stream.getVideoTracks().length > 0) {
-                const vt = stream.getVideoTracks()[0];
-                vt.enabled = !vt.enabled;
-                document.getElementById('videoContainer').style.display = vt.enabled ? "block" : "none";
+        tglVid.onclick = () => {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+                document.getElementById('videoArea').style.display = "none";
+                tglVid.classList.remove('active-vid');
+                tglMic.classList.remove('active-mic');
             } else {
-                startMedia(isRear);
+                start(isRear);
             }
         };
 
         document.getElementById('tglCam').onclick = () => {
             isRear = !isRear;
-            startMedia(isRear);
+            start(isRear);
         };
 
-        document.getElementById('tglMic').onclick = () => {
-            if (stream && stream.getAudioTracks().length > 0) {
+        tglMic.onclick = () => {
+            if (stream) {
                 const at = stream.getAudioTracks()[0];
                 at.enabled = !at.enabled;
-                updateMicUI(at.enabled);
-            } else {
-                startMedia(isRear);
+                tglMic.classList.toggle('active-mic', at.enabled);
             }
         };
 
