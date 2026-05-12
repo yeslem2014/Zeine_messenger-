@@ -2,26 +2,37 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>نظام التواصل الاحترافي</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root { --whatsapp-green: #075e54; --bg-color: #efe7de; }
-        body { font-family: sans-serif; background: var(--bg-color); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        header { background: var(--whatsapp-green); color: white; padding: 15px; text-align: center; font-weight: bold; }
-        #videoArea { width: 100%; display: none; background: #000; position: relative; }
-        video { width: 100%; height: 280px; object-fit: cover; border-bottom: 3px solid #128c7e; }
-        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 85px; }
-        .msg { background: #dcf8c6; padding: 10px; border-radius: 10px; align-self: flex-end; max-width: 80%; }
-        .input-bar { position: fixed; bottom: 0; width: 100%; background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 8px; box-sizing: border-box; border-top: 1px solid #ccc; z-index: 1000; }
-        button { background: none; border: none; padding: 8px; cursor: pointer; color: #51585c; outline: none; }
-        .active { color: #128c7e !important; }
-        input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid #ddd; outline: none; }
+        body { font-family: sans-serif; background: #efe7de; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { background: #075e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
+        
+        /* منطقة التحكم بالأجهزة */
+        #controls { background: #fff; padding: 10px; display: flex; gap: 5px; flex-wrap: wrap; border-bottom: 1px solid #ccc; font-size: 12px; }
+        select { flex: 1; padding: 5px; border-radius: 5px; border: 1px solid #ccc; }
+
+        #videoArea { width: 100%; display: none; background: #000; }
+        video { width: 100%; height: 280px; object-fit: cover; }
+
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { background: #dcf8c6; padding: 10px; border-radius: 15px; align-self: flex-end; max-width: 80%; }
+
+        .input-bar { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #ccc; }
+        button { background: #128c7e; color: white; border: none; padding: 10px 15px; border-radius: 20px; cursor: pointer; }
+        input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ddd; outline: none; }
     </style>
 </head>
 <body>
 
     <header>نظام تواصل العائلة</header>
+
+    <div id="controls">
+        <select id="videoSource" title="اختر الكاميرا"></select>
+        <select id="audioSource" title="اختر الميكروفون"></select>
+        <button id="btnStart">تشغيل</button>
+    </div>
 
     <div id="videoArea">
         <video id="webcam" autoplay playsinline></video>
@@ -30,92 +41,63 @@
     <div id="chat"></div>
 
     <div class="input-bar">
-        <button id="btnSwitch"><i class="fas fa-sync"></i></button>
-        <button id="btnStream"><i class="fas fa-video"></i></button>
-        <button id="btnMic"><i class="fas fa-microphone"></i></button>
         <input type="text" id="userInput" placeholder="اكتب رسالة...">
-        <button id="btnSend"><i class="fas fa-paper-plane" style="color:#128c7e"></i></button>
+        <button id="btnSend"><i class="fas fa-paper-plane"></i></button>
     </div>
 
     <script>
-        const btnStream = document.getElementById('btnStream'), btnSwitch = document.getElementById('btnSwitch'), btnMic = document.getElementById('btnMic');
-        const webcam = document.getElementById('webcam'), videoArea = document.getElementById('videoArea'), chat = document.getElementById('chat'), userInput = document.getElementById('userInput');
-        
-        let currentStream = null;
-        let isRear = false;
+        const videoElement = document.getElementById('webcam');
+        const videoSelect = document.getElementById('videoSource');
+        const audioSelect = document.getElementById('audioSource');
+        const btnStart = document.getElementById('btnStart');
+        const chat = document.getElementById('chat');
+        const userInput = document.getElementById('userInput');
 
-        async function startMedia() {
-            // إنهاء أي بث سابق
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
+        // جلب الأجهزة المتاحة (كاميرات وميكروفونات)
+        async function getDevices() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                if (device.kind === 'videoinput') {
+                    option.text = device.label || `كاميرا ${videoSelect.length + 1}`;
+                    videoSelect.appendChild(option);
+                } else if (device.kind === 'audioinput') {
+                    option.text = device.label || `ميكروفون ${audioSelect.length + 1}`;
+                    audioSelect.appendChild(option);
+                }
+            });
+        }
+
+        async function startStream() {
+            if (window.stream) {
+                window.stream.getTracks().forEach(track => track.stop());
             }
-
             const constraints = {
-                video: { 
-                    facingMode: isRear ? { exact: "environment" } : "user",
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                }
+                audio: { deviceId: audioSelect.value ? { exact: audioSelect.value } : undefined },
+                video: { deviceId: videoSelect.value ? { exact: videoSelect.value } : undefined }
             };
-
             try {
-                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-                webcam.srcObject = currentStream;
-                videoArea.style.display = "block";
-                btnStream.classList.add('active');
-                btnMic.classList.add('active');
-                
-                // تفعيل الصوت برمجياً لضمان عدم وجود كتم (Mute) من النظام
-                webcam.muted = false; 
-                console.log("تم تشغيل الوسائط بنجاح");
-            } catch (err) {
-                console.error("فشل الوصول:", err);
-                // محاولة تشغيل الكاميرا الخلفية بدون شرط 'exact' إذا فشلت
-                if (isRear) {
-                    isRear = false;
-                    alert("الكاميرا الخلفية غير مدعومة أو محظورة، سيتم تشغيل المتاحة.");
-                    startMedia();
-                } else {
-                    alert("تأكد من إعطاء صلاحية الميكروفون والكاميرا للمتصفح.");
-                }
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                window.stream = stream;
+                videoElement.srcObject = stream;
+                document.getElementById('videoArea').style.display = "block";
+                btnStart.innerText = "تحديث";
+            } catch (e) {
+                alert("خطأ: " + e.message);
             }
         }
 
-        btnStream.onclick = () => {
-            if (currentStream && currentStream.getVideoTracks().length > 0) {
-                currentStream.getTracks().forEach(track => track.stop());
-                currentStream = null;
-                videoArea.style.display = "none";
-                btnStream.classList.remove('active');
-                btnMic.classList.remove('active');
-            } else {
-                startMedia();
-            }
-        };
+        btnStart.onclick = startStream;
 
-        btnSwitch.onclick = () => {
-            isRear = !isRear;
-            if (currentStream) startMedia();
-        };
+        // تفعيل طلب الأذونات أولاً لجلب أسماء الأجهزة
+        navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+            .then(s => {
+                s.getTracks().forEach(t => t.stop());
+                getDevices();
+            });
 
-        btnMic.onclick = () => {
-            if (currentStream) {
-                const audioTrack = currentStream.getAudioTracks()[0];
-                if (audioTrack) {
-                    audioTrack.enabled = !audioTrack.enabled;
-                    btnMic.classList.toggle('active', audioTrack.enabled);
-                }
-            } else {
-                startMedia();
-            }
-        };
-
-        function send() {
+        document.getElementById('btnSend').onclick = () => {
             if (userInput.value.trim()) {
                 const div = document.createElement('div');
                 div.className = 'msg';
@@ -124,9 +106,7 @@
                 userInput.value = "";
                 chat.scrollTop = chat.scrollHeight;
             }
-        }
-        document.getElementById('btnSend').onclick = send;
-        userInput.onkeypress = (e) => { if(e.key === "Enter") send(); };
+        };
     </script>
 </body>
 </html>
