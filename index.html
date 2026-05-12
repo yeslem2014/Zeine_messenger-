@@ -8,26 +8,29 @@
     <style>
         :root { --whatsapp-green: #075e54; --bg-color: #efe7de; }
         body { font-family: sans-serif; background: var(--bg-color); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        header { background: var(--whatsapp-green); color: white; padding: 15px; text-align: center; font-weight: bold; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        
-        #videoArea { width: 100%; display: none; background: #000; position: relative; overflow: hidden; }
-        video { width: 100%; height: 280px; object-fit: cover; border-bottom: 3px solid #128c7e; display: block; transition: transform 0.3s ease; }
-
+        header { background: var(--whatsapp-green); color: white; padding: 15px; text-align: center; font-weight: bold; z-index: 1000; }
+        #videoArea { width: 100%; display: none; background: #000; position: relative; }
+        video { width: 100%; height: 280px; object-fit: cover; border-bottom: 3px solid #128c7e; display: block; }
         #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 85px; }
-        .msg { background: #dcf8c6; padding: 10px 15px; border-radius: 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); word-wrap: break-word; }
-        .img-msg { align-self: flex-end; max-width: 75%; border-radius: 10px; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); background: #fff; }
-        .img-msg img { width: 100%; display: block; }
-
-        .input-bar { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; position: fixed; bottom: 0; width: 100%; box-sizing: border-box; border-top: 1px solid #ccc; z-index: 1001; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+        .msg { background: #dcf8c6; padding: 10px 15px; border-radius: 15px; align-self: flex-end; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .input-bar { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; position: fixed; bottom: 0; width: 100%; box-sizing: border-box; border-top: 1px solid #ccc; z-index: 1001; }
         input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid #ddd; outline: none; font-size: 16px; }
-        i { color: #51585c; font-size: 24px; cursor: pointer; padding: 5px; transition: 0.2s; }
+        i { color: #51585c; font-size: 24px; cursor: pointer; padding: 5px; }
         .active { color: #128c7e !important; }
+        .mic-on { color: #e74c3c !important; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
-    <header>نظام تواصل العائلة</header>
-    <div id="videoArea"><video id="webcam" autoplay playsinline></video></div>
+
+    <header>نظام العائلة - متصل</header>
+
+    <div id="videoArea">
+        <video id="webcam" autoplay playsinline muted></video>
+    </div>
+
     <div id="chat"></div>
+
     <div class="input-bar">
         <i class="fas fa-sync" id="btnSwitch"></i>
         <i class="fas fa-video" id="btnStream"></i>
@@ -36,64 +39,75 @@
         <input type="text" id="userInput" placeholder="اكتب رسالة..." enterkeyhint="send">
         <i class="fas fa-paper-plane" id="btnSend" style="color:#128c7e"></i>
     </div>
-    <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
         const btnStream = document.getElementById('btnStream'), btnSwitch = document.getElementById('btnSwitch'), btnMic = document.getElementById('btnMic');
-        const videoArea = document.getElementById('videoArea'), webcam = document.getElementById('webcam'), chat = document.getElementById('chat'), userInput = document.getElementById('userInput'), canvas = document.getElementById('canvas');
-        let stream = null, isRear = false;
+        const webcam = document.getElementById('webcam'), videoArea = document.getElementById('videoArea'), chat = document.getElementById('chat'), userInput = document.getElementById('userInput');
+        
+        let mainStream = null;
+        let isRear = false;
 
-        async function startMedia() {
-            if (stream) stream.getTracks().forEach(t => t.stop());
+        async function initMedia(video = true, audio = true) {
             try {
-                // ميزة ذكية: ضبط الكاميرا الأمامية لتكون "مرآة" والخلفية طبيعية
-                webcam.style.transform = isRear ? "scaleX(1)" : "scaleX(-1)";
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: isRear ? "environment" : "user" }, audio: true });
-                webcam.srcObject = stream;
-                videoArea.style.display = "block";
-                btnStream.classList.add('active');
-                btnMic.classList.add('active');
-            } catch (e) { alert("يرجى تفعيل صلاحية الكاميرا والميكروفون"); }
+                const constraints = {
+                    video: video ? { facingMode: isRear ? "environment" : "user" } : false,
+                    audio: audio
+                };
+                
+                if (mainStream) mainStream.getTracks().forEach(t => t.stop());
+                
+                mainStream = await navigator.mediaDevices.getUserMedia(constraints);
+                webcam.srcObject = mainStream;
+                
+                if (video) videoArea.style.display = "block";
+                btnStream.classList.toggle('active', video);
+                btnMic.classList.toggle('mic-on', audio);
+                
+                console.log("تم تفعيل الوسائط بنجاح");
+            } catch (err) {
+                console.error("خطأ في الوصول:", err);
+                alert("يرجى التأكد من الضغط على 'سماح' عند طلب الميكروفون");
+            }
         }
 
         btnStream.onclick = () => {
-            if (stream) {
-                stream.getTracks().forEach(t => t.stop());
-                stream = null;
+            if (mainStream && mainStream.getVideoTracks().length > 0) {
+                mainStream.getVideoTracks().forEach(t => t.stop());
                 videoArea.style.display = "none";
                 btnStream.classList.remove('active');
-                btnMic.classList.remove('active');
-            } else { startMedia(); }
-        };
-
-        btnSwitch.onclick = () => { isRear = !isRear; if (stream) startMedia(); };
-
-        document.getElementById('btnCapture').onclick = () => {
-            if (stream) {
-                canvas.width = webcam.videoWidth; canvas.height = webcam.videoHeight;
-                const ctx = canvas.getContext('2d');
-                if (!isRear) { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); } // حفظ الصورة بشكل صحيح غير مقلوب
-                ctx.drawImage(webcam, 0, 0);
-                const div = document.createElement('div');
-                div.className = 'img-msg';
-                div.innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}">`;
-                chat.appendChild(div);
-                chat.scrollTop = chat.scrollHeight;
+            } else {
+                initMedia(true, true);
             }
         };
 
-        function sendText() {
+        btnMic.onclick = () => {
+            if (mainStream && mainStream.getAudioTracks().length > 0) {
+                const audioTrack = mainStream.getAudioTracks()[0];
+                audioTrack.enabled = !audioTrack.enabled;
+                btnMic.classList.toggle('mic-on', audioTrack.enabled);
+            } else {
+                initMedia(false, true);
+            }
+        };
+
+        btnSwitch.onclick = () => {
+            isRear = !isRear;
+            if (mainStream) initMedia(true, true);
+        };
+
+        function sendMessage() {
             if (userInput.value.trim()) {
-                const div = document.createElement('div');
-                div.className = 'msg';
-                div.textContent = userInput.value;
-                chat.appendChild(div);
+                const d = document.createElement('div');
+                d.className = 'msg';
+                d.textContent = userInput.value;
+                chat.appendChild(d);
                 userInput.value = "";
                 chat.scrollTop = chat.scrollHeight;
             }
         }
-        document.getElementById('btnSend').onclick = sendText;
-        userInput.onkeypress = (e) => { if(e.key === "Enter") sendText(); };
+
+        document.getElementById('btnSend').onclick = sendMessage;
+        userInput.onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
     </script>
 </body>
 </html>
