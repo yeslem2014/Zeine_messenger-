@@ -2,65 +2,175 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام العائلة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>نظام التواصل العائلي</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; background: #efe7de; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #efe7de; font-family: sans-serif; }
         
-        header { background: #075e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
-
-        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5; }
-        .msg { background: white; padding: 10px; border-radius: 10px; max-width: 80%; align-self: flex-start; }
-        .my-msg { background: #dcf8c6; align-self: flex-end; }
-
-        .footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #ccc; }
-
-        /* الأزرار المعدلة لضمان الظهور */
-        .btn-action { 
-            width: 45px; height: 45px; border-radius: 50%; border: none; 
-            background: white; display: flex; align-items: center; justify-content: center;
-            font-size: 22px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            flex-shrink: 0;
+        header { 
+            position: absolute; top: 0; left: 0; right: 0; height: 55px;
+            background: #075e54; color: white; display: flex; align-items: center; 
+            justify-content: center; font-weight: bold; z-index: 100;
         }
 
-        /* تأثير عند الضغط يظهر اللون الأخضر كما طلبت */
-        .btn-action:active { background: #25d366; color: white; }
-        
-        input { flex: 1; border: 1px solid #ddd; padding: 12px; border-radius: 25px; outline: none; }
-        #sendBtn { background: none; border: none; font-size: 28px; color: #128c7e; cursor: pointer; }
+        #videoArea { 
+            position: absolute; top: 55px; left: 0; right: 0; height: 250px;
+            background: #000; display: none; z-index: 10; border-bottom: 3px solid #25d366;
+        }
+        video { width: 100%; height: 100%; object-fit: cover; }
+
+        #chat { 
+            position: absolute; top: 55px; bottom: 85px; left: 0; right: 0;
+            overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5;
+            transition: top 0.3s ease;
+        }
+
+        .msg { background: white; padding: 10px; border-radius: 12px; align-self: flex-start; max-width: 85%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); word-wrap: break-word; }
+        .my-msg { background: #dcf8c6; align-self: flex-end; }
+        .msg img { max-width: 100%; border-radius: 8px; display: block; margin-top: 5px; }
+
+        .footer { 
+            position: absolute; bottom: 0; left: 0; right: 0; height: 85px;
+            background: #f0f0f0; display: flex; align-items: center; padding: 0 5px;
+            z-index: 100; gap: 5px; border-top: 1px solid #ddd;
+        }
+
+        .btn-wa { 
+            background: white; border: none; width: 45px; height: 45px; 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2); flex-shrink: 0; cursor: pointer;
+        }
+
+        /* ألوان الأيقونات */
+        .icon-green { fill: #25d366; }
+        .icon-blue { fill: #007bff; }
+        .icon-send { fill: #128c7e; }
+
+        .is-active { background: #25d366 !important; }
+        .is-active svg { fill: white !important; }
+        .is-muted { background: #ff4d4d !important; }
+        .is-muted svg { fill: white !important; }
+
+        input { 
+            flex: 1; border: 1px solid #ddd; padding: 12px; 
+            border-radius: 25px; font-size: 15px; outline: none; background: white;
+        }
     </style>
 </head>
 <body>
 
     <header>نظام تواصل العائلة</header>
 
-    <div id="chat" id="chatHistory"></div>
+    <div id="videoArea">
+        <video id="v" autoplay playsinline muted></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+
+    <div id="chat"></div>
 
     <div class="footer">
-        <button class="btn-action" onclick="alert('تبديل الكاميرا')" title="تبديل">🔄</button>
-        <button class="btn-action" onclick="alert('فتح الميكروفون')" title="مايك">🎤</button>
-        <button class="btn-action" onclick="alert('فتح الكاميرا')" title="كاميرا">📷</button>
-        <button class="btn-action" onclick="alert('لقطة شاشة')" title="لقطة">🖼️</button>
+        <!-- أيقونة تبديل الكاميرا -->
+        <button class="btn-wa" id="tglCam">
+            <svg class="icon-green" width="24" height="24" viewBox="0 0 24 24"><path d="M7 7h10v2l3-3-3-3v2H5v6h2V7zm10 10H7v-2l-3 3 3 3v-2h12v-6h-2v4z"/></svg>
+        </button>
+        <!-- أيقونة الفيديو -->
+        <button class="btn-wa" id="tglVid">
+            <svg class="icon-green" width="24" height="24" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        </button>
+        <!-- أيقونة التقاط صورة -->
+        <button class="btn-wa" id="takePic">
+            <svg class="icon-green" width="24" height="24" viewBox="0 0 24 24"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+        </button>
+        <!-- أيقونة الميكروفون -->
+        <button class="btn-wa" id="tglMic">
+            <svg class="icon-blue" width="24" height="24" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+        </button>
 
-        <input type="text" id="m" placeholder="اكتب رسالة...">
+        <input type="text" id="m" placeholder="اكتب رسالة..." enterkeyhint="send">
         
-        <button id="sendBtn">➤</button>
+        <button class="btn-wa" id="sendBtn" style="box-shadow:none; background:none;">
+            <svg class="icon-send" width="28" height="28" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
     </div>
 
     <script>
-        const m = document.getElementById('m'), chat = document.getElementById('chat');
-        
-        document.getElementById('sendBtn').onclick = () => {
-            if(m.value.trim()){
-                const d = document.createElement('div');
-                d.className = 'msg my-msg';
-                d.innerText = m.value;
-                chat.appendChild(d);
-                chat.scrollTop = chat.scrollHeight;
+        const v = document.getElementById('v'), chat = document.getElementById('chat'), m = document.getElementById('m');
+        const vArea = document.getElementById('videoArea'), canvas = document.getElementById('canvas');
+        const tglVid = document.getElementById('tglVid'), tglMic = document.getElementById('tglMic');
+
+        let stream = null, isRear = true;
+
+        // استعادة المحادثة عند الفتح
+        window.onload = () => {
+            const saved = localStorage.getItem('chat_history');
+            if (saved) { chat.innerHTML = saved; chat.scrollTop = chat.scrollHeight; }
+        };
+
+        async function startMedia() {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: isRear ? "environment" : "user" },
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+                v.srcObject = stream;
+                v.onloadedmetadata = () => { v.play(); v.muted = false; };
+                vArea.style.display = "block";
+                chat.style.top = "305px";
+                tglVid.classList.add('is-active');
+                tglMic.classList.add('is-active');
+            } catch (e) { alert("يرجى تفعيل صلاحية الكاميرا والميكروفون"); }
+        }
+
+        tglVid.onclick = () => {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                vArea.style.display = "none";
+                chat.style.top = "55px";
+                tglVid.classList.remove('is-active');
+                tglMic.classList.remove('is-active', 'is-muted');
+                stream = null;
+            } else { startMedia(); }
+        };
+
+        document.getElementById('tglCam').onclick = () => { isRear = !isRear; if(stream) startMedia(); };
+
+        tglMic.onclick = () => {
+            if (stream) {
+                const track = stream.getAudioTracks()[0];
+                track.enabled = !track.enabled;
+                tglMic.classList.toggle('is-muted', !track.enabled);
+                tglMic.classList.toggle('is-active', track.enabled);
+            }
+        };
+
+        document.getElementById('takePic').onclick = () => {
+            if (stream) {
+                canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+                canvas.getContext('2d').drawImage(v, 0, 0);
+                addMsg(`<img src="${canvas.toDataURL('image/png')}">`);
+            } else { alert("افتح الكاميرا أولاً"); }
+        };
+
+        function addMsg(content, isMy = true) {
+            const d = document.createElement('div');
+            d.className = 'msg' + (isMy ? ' my-msg' : '');
+            d.innerHTML = content;
+            chat.appendChild(d);
+            chat.scrollTop = chat.scrollHeight;
+            localStorage.setItem('chat_history', chat.innerHTML);
+        }
+
+        const send = () => {
+            if (m.value.trim()) {
+                addMsg(m.value);
                 m.value = "";
             }
         };
+
+        document.getElementById('sendBtn').onclick = send;
+        m.onkeypress = (e) => { if(e.key === "Enter") send(); };
     </script>
 </body>
 </html>
