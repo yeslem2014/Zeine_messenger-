@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>نظام التواصل الاحترافي</title>
+    <title>نظام التواصل - نسخة واتساب</title>
     <link rel="stylesheet" href="https://cloudflare.com">
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -17,40 +17,51 @@
 
         #videoArea { 
             position: absolute; top: 55px; left: 0; right: 0; height: 250px;
-            background: #000; display: none; z-index: 10; border-bottom: 3px solid #128c7e;
+            background: #000; display: none; z-index: 10; border-bottom: 3px solid #25d366;
         }
         video { width: 100%; height: 100%; object-fit: cover; }
 
         #chat { 
             position: absolute; top: 55px; bottom: 80px; left: 0; right: 0;
             overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5;
-            transition: top 0.3s ease; padding-bottom: 20px;
+            transition: top 0.3s ease;
         }
 
-        .msg { background: white; padding: 10px; border-radius: 12px; align-self: flex-start; max-width: 85%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); word-wrap: break-word; }
+        .msg { background: white; padding: 10px; border-radius: 12px; align-self: flex-start; max-width: 85%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
         .my-msg { background: #dcf8c6; align-self: flex-end; }
         .msg img { max-width: 100%; border-radius: 8px; display: block; margin-top: 5px; }
 
+        /* شريط الأدوات السفلي */
         .footer { 
             position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
-            background: #075e54; display: flex; align-items: center; padding: 0 8px;
-            z-index: 100; gap: 8px;
+            background: #f0f0f0; /* خلفية فاتحة ليبرز اللون الأخضر */
+            display: flex; align-items: center; padding: 0 10px;
+            z-index: 100; gap: 8px; border-top: 1px solid #ddd;
         }
 
-        .btn { 
-            background: white; border: none; width: 42px; height: 42px; 
-            border-radius: 50%; color: #075e54; 
-            font-size: 18px; cursor: pointer; 
+        /* تصميم الأيقونات باللون الأخضر النعناعي (واتساب) */
+        .btn-wa { 
+            background: white; border: none; width: 45px; height: 45px; 
+            border-radius: 50%; color: #25d366; /* أخضر نعناعي زاهي */
+            font-size: 22px; cursor: pointer; 
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2); flex-shrink: 0; transition: 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2); flex-shrink: 0;
         }
-        .btn:active { transform: scale(0.9); }
         
-        .active-red { background: #ff4d4d !important; color: white !important; }
-        .active-green { background: #25d366 !important; color: white !important; }
+        /* تأثير عند الضغط */
+        .btn-wa:active { background: #25d366; color: white; transform: scale(0.9); }
+        
+        /* حالات التفعيل */
+        .is-active { background: #25d366 !important; color: white !important; }
+        .is-muted { background: #ff4d4d !important; color: white !important; }
 
-        input { flex: 1; border: none; padding: 12px 15px; border-radius: 25px; font-size: 15px; outline: none; background: white; min-width: 0; }
-        #sendBtn { background: #128c7e; color: white; }
+        input { 
+            flex: 1; border: 1px solid #ddd; padding: 12px 15px; 
+            border-radius: 25px; font-size: 15px; outline: none; 
+            background: white; min-width: 0;
+        }
+
+        #sendBtn { color: #128c7e; font-size: 24px; background: none; box-shadow: none; }
     </style>
 </head>
 <body>
@@ -65,12 +76,12 @@
     <div id="chat"></div>
 
     <div class="footer">
-        <button class="btn" id="tglCam" title="تبديل الكاميرا"><i class="fas fa-camera-rotate"></i></button>
-        <button class="btn" id="tglVid" title="تشغيل الكاميرا"><i class="fas fa-video"></i></button>
-        <button class="btn" id="takePic" title="التقاط لقطة"><i class="fas fa-camera"></i></button>
-        <button class="btn" id="tglMic" title="الميكروفون"><i class="fas fa-microphone"></i></button>
-        <input type="text" id="m" placeholder="اكتب..." enterkeyhint="send">
-        <button class="btn" id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+        <button class="btn-wa" id="tglCam"><i class="fas fa-camera-rotate"></i></button>
+        <button class="btn-wa" id="tglVid"><i class="fas fa-video"></i></button>
+        <button class="btn-wa" id="takePic"><i class="fas fa-camera"></i></button>
+        <button class="btn-wa" id="tglMic"><i class="fas fa-microphone"></i></button>
+        <input type="text" id="m" placeholder="اكتب رسالة..." enterkeyhint="send">
+        <button class="btn-wa" id="sendBtn"><i class="fas fa-paper-plane"></i></button>
     </div>
 
     <script>
@@ -96,9 +107,9 @@
                 v.onloadedmetadata = () => { v.play(); v.muted = false; };
                 vArea.style.display = "block";
                 chat.style.top = "305px";
-                tglVid.classList.add('active-green');
-                tglMic.classList.add('active-green');
-            } catch (e) { alert("تأكد من إعطاء صلاحية الكاميرا والميكروفون"); }
+                tglVid.classList.add('is-active');
+                tglMic.classList.add('is-active');
+            } catch (e) { alert("يرجى السماح بالكاميرا"); }
         }
 
         tglVid.onclick = () => {
@@ -106,8 +117,8 @@
                 stream.getTracks().forEach(t => t.stop());
                 vArea.style.display = "none";
                 chat.style.top = "55px";
-                tglVid.classList.remove('active-green');
-                tglMic.classList.remove('active-green', 'active-red');
+                tglVid.classList.remove('is-active');
+                tglMic.classList.remove('is-active', 'is-muted');
                 stream = null;
             } else { startMedia(); }
         };
@@ -116,11 +127,11 @@
 
         tglMic.onclick = () => {
             if (stream) {
-                const audioTrack = stream.getAudioTracks()[0];
-                audioTrack.enabled = !audioTrack.enabled;
-                tglMic.classList.toggle('active-red', !audioTrack.enabled);
-                tglMic.classList.toggle('active-green', audioTrack.enabled);
-                tglMic.querySelector('i').className = audioTrack.enabled ? 'fas fa-microphone' : 'fas fa-microphone-slash';
+                const track = stream.getAudioTracks()[0];
+                track.enabled = !track.enabled;
+                tglMic.classList.toggle('is-muted', !track.enabled);
+                tglMic.classList.toggle('is-active', track.enabled);
+                tglMic.querySelector('i').className = track.enabled ? 'fas fa-microphone' : 'fas fa-microphone-slash';
             }
         };
 
