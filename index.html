@@ -6,62 +6,88 @@
     <title>نظام التواصل</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: #efe7de; }
-        header { background: #075e54; color: white; padding: 15px; text-align: center; }
-        #videoArea { width: 100%; display: none; background: #000; }
-        video { width: 100%; height: 250px; object-fit: cover; }
+        body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: #efe7de; overflow: hidden; }
+        header { background: #075e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
+        #videoArea { width: 100%; display: none; background: #000; position: relative; }
+        video { width: 100%; height: 280px; object-fit: cover; border-bottom: 3px solid #128c7e; }
         #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 80px; }
-        .img-msg { align-self: flex-end; max-width: 70%; border-radius: 10px; border: 2px solid white; }
+        .img-msg { align-self: flex-end; max-width: 75%; border-radius: 10px; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .img-msg img { width: 100%; display: block; }
-        .input-bar { position: fixed; bottom: 0; width: 100%; background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 12px; box-sizing: border-box; }
-        i { font-size: 24px; cursor: pointer; color: #51585c; }
-        .active { color: #128c7e; }
-        input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
+        .input-bar { position: fixed; bottom: 0; width: 100%; background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; box-sizing: border-box; border-top: 1px solid #ccc; z-index: 1000; }
+        i { font-size: 24px; cursor: pointer; color: #51585c; padding: 5px; }
+        .active { color: #128c7e !important; }
+        input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid #ddd; outline: none; }
     </style>
 </head>
 <body>
+
     <header>نظام تواصل العائلة</header>
-    <div id="videoArea"><video id="webcam" autoplay playsinline></video></div>
+
+    <div id="videoArea">
+        <video id="webcam" autoplay playsinline muted></video>
+    </div>
+
     <div id="chat"></div>
+
     <div class="input-bar">
-        <i class="fas fa-video" id="btnStream" title="كاميرا خلفية"></i>
+        <i class="fas fa-sync" id="btnSwitch" title="تبديل الكاميرا"></i>
+        <i class="fas fa-video" id="btnStream" title="تشغيل/إيقاف"></i>
         <i class="fas fa-camera" id="btnCapture"></i>
         <i class="fas fa-microphone" id="btnMic"></i>
-        <input type="text" id="userInput" placeholder="اكتب...">
-        <i class="fas fa-paper-plane" id="btnSend"></i>
+        <input type="text" id="userInput" placeholder="اكتب رسالة...">
+        <i class="fas fa-paper-plane" id="btnSend" style="color:#128c7e"></i>
     </div>
+
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
         const btnStream = document.getElementById('btnStream');
+        const btnSwitch = document.getElementById('btnSwitch');
         const btnMic = document.getElementById('btnMic');
+        const videoArea = document.getElementById('videoArea');
         const webcam = document.getElementById('webcam');
+        const chat = document.getElementById('chat');
+        
         let stream = null;
+        let currentMode = "user"; // الكاميرا الأمامية افتراضياً
 
-        // تفعيل الكاميرا الخلفية والميكروفون معاً
-        btnStream.onclick = async () => {
+        async function startCamera(mode) {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+            }
+            try {
+                // طلب الفيديو والميكروفون معاً لضمان عمل الصوت
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: mode }, 
+                    audio: true 
+                });
+                webcam.srcObject = stream;
+                videoArea.style.display = "block";
+                btnStream.classList.add('active');
+                btnMic.classList.add('active');
+                webcam.play();
+            } catch (e) {
+                alert("تعذر الوصول للكاميرا أو الميكروفون. تأكد من الأذونات.");
+            }
+        }
+
+        // زر التشغيل والإيقاف
+        btnStream.onclick = () => {
             if (stream) {
                 stream.getTracks().forEach(t => t.stop());
                 stream = null;
-                document.getElementById('videoArea').style.display = "none";
+                videoArea.style.display = "none";
                 btnStream.classList.remove('active');
+                btnMic.classList.remove('active');
             } else {
-                try {
-                    // طلب الكاميرا الخلفية (environment) والميكروفون
-                    stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: { exact: "environment" } }, 
-                        audio: true 
-                    });
-                    webcam.srcObject = stream;
-                    document.getElementById('videoArea').style.display = "block";
-                    btnStream.classList.add('active');
-                } catch (e) {
-                    // إذا فشل طلب الكاميرا الخلفية تحديداً، يطلب أي كاميرا متاحة
-                    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                    webcam.srcObject = stream;
-                    document.getElementById('videoArea').style.display = "block";
-                }
+                startCamera(currentMode);
             }
+        };
+
+        // زر تبديل الكاميرا (أمامية/خلفية)
+        btnSwitch.onclick = () => {
+            currentMode = (currentMode === "user") ? "environment" : "user";
+            if (stream) startCamera(currentMode);
         };
 
         // التقاط الصورة
@@ -74,17 +100,22 @@
                 const div = document.createElement('div');
                 div.className = 'img-msg';
                 div.innerHTML = `<img src="${cvs.toDataURL('image/jpeg')}">`;
-                document.getElementById('chat').appendChild(div);
+                chat.appendChild(div);
+                chat.scrollTop = chat.scrollHeight;
             }
         };
 
-        // تفعيل الميكروفون منفصلاً
-        btnMic.onclick = async () => {
-            try {
-                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                btnMic.classList.add('active');
-                console.log("الميكروفون نشط");
-            } catch (e) { alert("تأكد من إذن الميكروفون"); }
+        // إرسال النص
+        document.getElementById('btnSend').onclick = () => {
+            const input = document.getElementById('userInput');
+            if (input.value.trim()) {
+                const div = document.createElement('div');
+                div.style.cssText = "background:#dcf8c6; padding:10px; border-radius:15px; align-self:flex-end; max-width:80%;";
+                div.textContent = input.value;
+                chat.appendChild(div);
+                input.value = "";
+                chat.scrollTop = chat.scrollHeight;
+            }
         };
     </script>
 </body>
