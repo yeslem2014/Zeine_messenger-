@@ -13,240 +13,188 @@
             --danger: #ff4d4d;
         }
 
+        /* منع التمرير في الجسم الأساسي لمنع اختفاء الشريط */
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         
         body, html { 
-            height: 100%; width: 100%; overflow: hidden; 
-            background: var(--bg-chat); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            height: 100%; width: 100%; overflow: hidden; position: fixed;
+            background: var(--bg-chat); font-family: sans-serif; 
         }
         
         header { 
-            height: 60px; background: var(--primary); color: white; 
+            height: 50px; background: var(--primary); color: white; 
             display: flex; align-items: center; justify-content: center; 
-            font-weight: bold; position: relative; z-index: 2000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-weight: bold; z-index: 2000; position: relative;
         }
 
         #videoArea { 
-            position: absolute; top: 60px; left: 0; right: 0; 
-            height: 230px; background: #000; display: none; 
-            z-index: 1000; border-bottom: 3px solid var(--accent); 
+            height: 200px; background: #000; display: none; 
+            border-bottom: 2px solid var(--accent); position: relative;
         }
         
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        video { width: 100%; height: 100%; object-fit: cover; }
 
+        /* منطقة الدردشة مرنة لتأخذ المساحة المتبقية فقط */
         #chat { 
-            position: absolute; top: 60px; bottom: 90px; left: 0; right: 0; 
-            overflow-y: auto; padding: 15px; display: flex; 
-            flex-direction: column; gap: 12px; background: #e5ddd5; 
-            transition: all 0.3s ease; z-index: 500; 
+            flex: 1; overflow-y: auto; padding: 10px; display: flex; 
+            flex-direction: column; gap: 10px; background: #e5ddd5;
         }
         
+        /* حاوية أساسية لتوزيع العناصر عمودياً */
+        .main-container {
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
         .msg { 
-            background: white; padding: 8px 12px; border-radius: 15px; 
-            align-self: flex-start; max-width: 80%; 
-            box-shadow: 0 1px 2px rgba(0,0,0,0.15); 
-            word-wrap: break-word; position: relative;
+            background: white; padding: 8px 12px; border-radius: 12px; 
+            align-self: flex-start; max-width: 85%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); 
+            word-wrap: break-word; position: relative; font-size: 14px;
         }
         
         .my-msg { background: var(--my-msg); align-self: flex-end; }
         
-        .msg img { 
-            max-width: 100%; border-radius: 10px; 
-            display: block; margin: 5px 0; object-fit: cover;
-        }
+        .msg img { max-width: 100%; border-radius: 8px; display: block; margin: 5px 0; }
 
-        .msg-time { 
-            font-size: 10px; color: #888; display: block; 
-            text-align: left; margin-top: 4px; 
-        }
+        .msg-time { font-size: 9px; color: #888; display: block; text-align: left; margin-top: 4px; }
 
+        /* تعديل شريط الأدوات ليكون مرناً ولا يختفي */
         .footer { 
-            position: fixed; bottom: 0; left: 0; right: 0; height: 90px;
-            background: #f0f0f0; display: flex; align-items: center; 
-            padding: 0 10px; border-top: 1px solid #ddd; z-index: 3000; gap: 8px;
+            height: auto; min-height: 70px; background: #f0f0f0; 
+            display: flex; flex-direction: column; padding: 5px;
+            border-top: 1px solid #ccc; gap: 5px; padding-bottom: env(safe-area-inset-bottom);
         }
 
-        .buttons-container { display: flex; gap: 5px; flex-shrink: 0; }
+        .controls-row { display: flex; align-items: center; gap: 5px; width: 100%; }
+        
+        .buttons-container { display: flex; gap: 4px; }
 
         .btn-action { 
-            background: white; border: 1px solid #ccc; border-radius: 12px;
+            background: white; border: 1px solid #ddd; border-radius: 8px;
             display: flex; flex-direction: column; align-items: center; 
-            justify-content: center; width: 48px; height: 55px; 
-            cursor: pointer; color: var(--primary); font-size: 10px; font-weight: bold;
+            justify-content: center; width: 42px; height: 45px; 
+            cursor: pointer; color: var(--primary); font-size: 9px;
         }
         
-        .btn-action span { font-size: 20px; margin-bottom: 2px; }
-        
-        .active-btn { background: var(--accent) !important; color: white !important; border-color: var(--accent); }
-        .muted-btn { background: var(--danger) !important; color: white !important; border-color: var(--danger); }
+        .btn-action span { font-size: 18px; }
+        .active-btn { background: var(--accent) !important; color: white !important; }
+        .muted-btn { background: var(--danger) !important; color: white !important; }
 
         input { 
-            flex: 1; border: none; padding: 12px 18px; 
-            border-radius: 25px; outline: none; font-size: 15px; 
-            background: white; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            flex: 1; border: 1px solid #ccc; padding: 10px 15px; 
+            border-radius: 20px; outline: none; font-size: 14px; background: white;
         }
         
         #sendBtn { 
             background: var(--primary); color: white; border: none; 
-            border-radius: 50%; width: 50px; height: 50px; 
-            cursor: pointer; flex-shrink: 0; display: flex;
-            align-items: center; justify-content: center; font-size: 20px;
+            border-radius: 50%; width: 40px; height: 40px; 
+            cursor: pointer; font-size: 16px;
         }
     </style>
 </head>
 <body>
 
+<div class="main-container">
     <header>نظام تواصل العائلة - Zeine</header>
 
     <div id="videoArea"><video id="v" autoplay playsinline muted></video></div>
-    <canvas id="canvas" style="display:none;"></canvas>
-
+    
     <div id="chat">
-        <div class="msg">أهلاً بك! اضغط على "فيديو" لبدء المحادثة المرئية.</div>
+        <div class="msg">مرحباً! استخدم الأزرار بالأسفل للتحكم.</div>
     </div>
 
     <div class="footer">
-        <div class="buttons-container">
-            <div class="btn-action" id="tglVid"><span>📷</span>فيديو</div>
-            <div class="btn-action" id="tglMic"><span>🎤</span>صوت</div>
-            <div class="btn-action" id="takePic"><span>🖼️</span>صورة</div>
-            <div class="btn-action" id="tglCam"><span>🔄</span>تبديل</div>
+        <div class="controls-row">
+            <input type="text" id="m" placeholder="اكتب رسالة..." enterkeyhint="send">
+            <button id="sendBtn">➤</button>
         </div>
-        
-        <input type="text" id="m" placeholder="اكتب رسالة..." enterkeyhint="send">
-        <button id="sendBtn">➤</button>
+        <div class="controls-row" style="justify-content: center; border-top: 1px solid #eee; pt: 5px;">
+            <div class="buttons-container">
+                <div class="btn-action" id="tglVid"><span>📷</span>فيديو</div>
+                <div class="btn-action" id="tglMic"><span>🎤</span>صوت</div>
+                <div class="btn-action" id="takePic"><span>🖼️</span>صورة</div>
+                <div class="btn-action" id="tglCam"><span>🔄</span>تبديل</div>
+            </div>
+        </div>
     </div>
+</div>
 
-    <script>
-        const _v = document.getElementById('v'), 
-              _chat = document.getElementById('chat'), 
-              _m = document.getElementById('m'),
-              _vArea = document.getElementById('videoArea'), 
-              _canvas = document.getElementById('canvas'),
-              _tglVid = document.getElementById('tglVid'), 
-              _tglMic = document.getElementById('tglMic');
+<canvas id="canvas" style="display:none;"></canvas>
 
-        let _stream = null, _isRear = false;
+<script>
+    const _v = document.getElementById('v'), _chat = document.getElementById('chat'), _m = document.getElementById('m');
+    const _vArea = document.getElementById('videoArea'), _canvas = document.getElementById('canvas');
+    const _tglVid = document.getElementById('tglVid'), _tglMic = document.getElementById('tglMic');
 
-        // استعادة المحادثة
-        const savedData = localStorage.getItem('zeine_chat_v3');
-        if (savedData) { _chat.innerHTML = savedData; _chat.scrollTop = _chat.scrollHeight; }
+    let _stream = null, _isRear = false;
 
-        // دالة جلب الوقت الحالي بتنسيق (ساعة:دقيقة)
-        function getTimeString() {
-            const now = new Date();
-            let hours = now.getHours();
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const ampm = hours >= 12 ? 'م' : 'ص';
-            hours = hours % 12;
-            hours = hours ? hours : 12; 
-            return `${hours}:${minutes} ${ampm}`;
+    // استعادة المحادثة
+    const savedData = localStorage.getItem('zeine_chat_v3');
+    if (savedData) { _chat.innerHTML = savedData; _chat.scrollTop = _chat.scrollHeight; }
+
+    function getTimeString() {
+        const now = new Date();
+        return now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0');
+    }
+
+    async function startSystem() {
+        if (_stream) _stream.getTracks().forEach(t => t.stop());
+        try {
+            _stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: _isRear ? "environment" : "user" },
+                audio: true
+            });
+            _v.srcObject = _stream;
+            _vArea.style.display = "block";
+            _tglVid.classList.add('active-btn');
+            _tglMic.classList.add('active-btn');
+            _tglMic.innerHTML = "<span>🎤</span>صوت";
+        } catch (err) { alert("تأكد من تفعيل صلاحيات الكاميرا"); }
+    }
+
+    _tglVid.onclick = (e) => {
+        e.preventDefault(); // منع أي سلوك افتراضي للمتصفح
+        if (_stream) {
+            _stream.getTracks().forEach(t => t.stop());
+            _vArea.style.display = "none";
+            _tglVid.classList.remove('active-btn');
+            _stream = null;
+        } else { startSystem(); }
+    };
+
+    _tglMic.onclick = (e) => {
+        e.preventDefault();
+        if (_stream) {
+            const audioTrack = _stream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                _tglMic.classList.toggle('muted-btn', !audioTrack.enabled);
+                _tglMic.classList.toggle('active-btn', audioTrack.enabled);
+                _tglMic.innerHTML = audioTrack.enabled ? "<span>🎤</span>صوت" : "<span>🔇</span>كتم";
+            }
+        } else { alert("شغل الفيديو أولاً"); }
+    };
+
+    document.getElementById('tglCam').onclick = () => { _isRear = !_isRear; if(_stream) startSystem(); };
+
+    document.getElementById('takePic').onclick = () => {
+        if (_stream) {
+            _canvas.width = _v.videoWidth; _canvas.height = _v.videoHeight;
+            _canvas.getContext('2d').drawImage(_v, 0, 0);
+            addMessage(`<img src="${_canvas.toDataURL('image/jpeg', 0.6)}">`);
         }
+    };
 
-        async function startSystem() {
-            if (_stream) {
-                _stream.getTracks().forEach(t => t.stop());
-            }
-            try {
-                _stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: _isRear ? "environment" : "user" },
-                    audio: true
-                });
-                _v.srcObject = _stream;
-                
-                const audioTrack = _stream.getAudioTracks()[0];
-                if(audioTrack) audioTrack.enabled = true;
+    function addMessage(content, isMy = true) {
+        const div = document.createElement('div');
+        div.className = 'msg' + (isMy ? ' my-msg' : '');
+        div.innerHTML = `${content}<span class="msg-time">${getTimeString()}</span>`;
+        _chat.appendChild(div);
+        _chat.scrollTop = _chat.scrollHeight;
+        localStorage.setItem('zeine_chat_v3', _chat.innerHTML);
+    }
 
-                _vArea.style.display = "block";
-                _chat.style.top = "290px";
-                _tglVid.classList.add('active-btn');
-                _tglMic.classList.add('active-btn');
-                _tglMic.classList.remove('muted-btn');
-                _tglMic.innerHTML = "<span>🎤</span>صوت";
-                
-                _chat.scrollTop = _chat.scrollHeight;
-            } catch (err) { 
-                console.error(err);
-                alert("خطأ: تأكد من إعطاء صلاحية الكاميرا والميكروفون."); 
-            }
-        }
-
-        _tglVid.onclick = () => {
-            if (_stream) {
-                _stream.getTracks().forEach(t => t.stop());
-                _v.srcObject = null;
-                _vArea.style.display = "none";
-                _chat.style.top = "60px";
-                _tglVid.classList.remove('active-btn');
-                _tglMic.classList.remove('active-btn', 'muted-btn');
-                _tglMic.innerHTML = "<span>🎤</span>صوت";
-                _stream = null;
-            } else { 
-                startSystem(); 
-            }
-        };
-
-        _tglMic.onclick = () => {
-            if (_stream) {
-                const audioTrack = _stream.getAudioTracks()[0];
-                if (audioTrack) {
-                    audioTrack.enabled = !audioTrack.enabled;
-                    if (audioTrack.enabled) {
-                        _tglMic.classList.remove('muted-btn');
-                        _tglMic.classList.add('active-btn');
-                        _tglMic.innerHTML = "<span>🎤</span>صوت";
-                    } else {
-                        _tglMic.classList.add('muted-btn');
-                        _tglMic.classList.remove('active-btn');
-                        _tglMic.innerHTML = "<span>🔇</span>كتم";
-                    }
-                }
-            } else {
-                alert("شغل الفيديو أولاً لتفعيل الميكروفون.");
-            }
-        };
-
-        document.getElementById('tglCam').onclick = () => { 
-            _isRear = !_isRear; 
-            if(_stream) startSystem(); 
-        };
-
-        // إكمال كود لقطة الشاشة وإرسالها مع الوقت وحفظ السجل
-        document.getElementById('takePic').onclick = () => {
-            if (_stream) {
-                _canvas.width = _v.videoWidth; 
-                _canvas.height = _v.videoHeight;
-                _canvas.getContext('2d').drawImage(_v, 0, 0);
-                const imgData = _canvas.toDataURL('image/png');
-                
-                addMessage(`<img src="${imgData}">`);
-            } else {
-                alert("يجب تشغيل الفيديو أولاً لالتقاط صورة.");
-            }
-        };
-
-        function addMessage(content, isMy = true) {
-            const div = document.createElement('div');
-            div.className = 'msg' + (isMy ? ' my-msg' : '');
-            
-            // دمج المحتوى مع الوقت الذكي أسفله
-            div.innerHTML = `${content}<span class="msg-time">${getTimeString()}</span>`;
-            
-            _chat.appendChild(div);
-            _chat.scrollTop = _chat.scrollHeight;
-            localStorage.setItem('zeine_chat_v3', _chat.innerHTML);
-        }
-
-        const handleSend = () => {
-            if (_m.value.trim()) {
-                addMessage(_m.value);
-                _m.value = "";
-            }
-        };
-
-        document.getElementById('sendBtn').onclick = handleSend;
-        _m.onkeypress = (e) => { if (e.key === "Enter") handleSend(); };
-    </script>
+    const handleSend = () => { if (_m.value.trim()) { addMessage(_m.value); _m.value = ""; } };
+    document.getElementById('sendBtn').onclick = handleSend;
+</script>
 </body>
 </html>
