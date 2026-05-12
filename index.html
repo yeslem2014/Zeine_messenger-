@@ -2,199 +2,78 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Zeine Messenger - Pro</title>
+    <title>اختبار الميكروفون فقط</title>
     <style>
-        :root {
-            --primary: #075e54;
-            --accent: #25d366;
-            --bg-chat: #efe7de;
-            --my-msg: #dcf8c6;
-            --danger: #ff4d4d;
-        }
-
-        /* منع التمرير في الجسم الأساسي لمنع اختفاء الشريط */
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        
-        body, html { 
-            height: 100%; width: 100%; overflow: hidden; position: fixed;
-            background: var(--bg-chat); font-family: sans-serif; 
-        }
-        
-        header { 
-            height: 50px; background: var(--primary); color: white; 
-            display: flex; align-items: center; justify-content: center; 
-            font-weight: bold; z-index: 2000; position: relative;
-        }
-
-        #videoArea { 
-            height: 200px; background: #000; display: none; 
-            border-bottom: 2px solid var(--accent); position: relative;
-        }
-        
-        video { width: 100%; height: 100%; object-fit: cover; }
-
-        /* منطقة الدردشة مرنة لتأخذ المساحة المتبقية فقط */
-        #chat { 
-            flex: 1; overflow-y: auto; padding: 10px; display: flex; 
-            flex-direction: column; gap: 10px; background: #e5ddd5;
-        }
-        
-        /* حاوية أساسية لتوزيع العناصر عمودياً */
-        .main-container {
-            display: flex; flex-direction: column; height: 100vh;
-        }
-
-        .msg { 
-            background: white; padding: 8px 12px; border-radius: 12px; 
-            align-self: flex-start; max-width: 85%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); 
-            word-wrap: break-word; position: relative; font-size: 14px;
-        }
-        
-        .my-msg { background: var(--my-msg); align-self: flex-end; }
-        
-        .msg img { max-width: 100%; border-radius: 8px; display: block; margin: 5px 0; }
-
-        .msg-time { font-size: 9px; color: #888; display: block; text-align: left; margin-top: 4px; }
-
-        /* تعديل شريط الأدوات ليكون مرناً ولا يختفي */
-        .footer { 
-            height: auto; min-height: 70px; background: #f0f0f0; 
-            display: flex; flex-direction: column; padding: 5px;
-            border-top: 1px solid #ccc; gap: 5px; padding-bottom: env(safe-area-inset-bottom);
-        }
-
-        .controls-row { display: flex; align-items: center; gap: 5px; width: 100%; }
-        
-        .buttons-container { display: flex; gap: 4px; }
-
-        .btn-action { 
-            background: white; border: 1px solid #ddd; border-radius: 8px;
-            display: flex; flex-direction: column; align-items: center; 
-            justify-content: center; width: 42px; height: 45px; 
-            cursor: pointer; color: var(--primary); font-size: 9px;
-        }
-        
-        .btn-action span { font-size: 18px; }
-        .active-btn { background: var(--accent) !important; color: white !important; }
-        .muted-btn { background: var(--danger) !important; color: white !important; }
-
-        input { 
-            flex: 1; border: 1px solid #ccc; padding: 10px 15px; 
-            border-radius: 20px; outline: none; font-size: 14px; background: white;
-        }
-        
-        #sendBtn { 
-            background: var(--primary); color: white; border: none; 
-            border-radius: 50%; width: 40px; height: 40px; 
-            cursor: pointer; font-size: 16px;
-        }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f2f5; }
+        .test-box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        button { padding: 15px 30px; font-size: 18px; cursor: pointer; border: none; border-radius: 10px; margin: 10px; color: white; font-weight: bold; }
+        #startBtn { background: #25d366; }
+        #muteBtn { background: #075e54; display: none; }
+        .status { margin-top: 20px; color: #555; }
+        .indicator { width: 50px; height: 50px; border-radius: 50%; background: #ccc; margin: 20px auto; transition: 0.3s; }
+        .recording { background: #ff4d4d; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
-<div class="main-container">
-    <header>نظام تواصل العائلة - Zeine</header>
-
-    <div id="videoArea"><video id="v" autoplay playsinline muted></video></div>
-    
-    <div id="chat">
-        <div class="msg">مرحباً! استخدم الأزرار بالأسفل للتحكم.</div>
+    <div class="test-box">
+        <h2>اختبار الميكروفون 🎤</h2>
+        <div id="indicator" class="indicator"></div>
+        <button id="startBtn">بدء الاختبار</button>
+        <button id="muteBtn">كتم الصوت</button>
+        <div class="status" id="status">اضغط على "بدء الاختبار" واسمح للمتصفح بالوصول للميكروفون</div>
     </div>
 
-    <div class="footer">
-        <div class="controls-row">
-            <input type="text" id="m" placeholder="اكتب رسالة..." enterkeyhint="send">
-            <button id="sendBtn">➤</button>
-        </div>
-        <div class="controls-row" style="justify-content: center; border-top: 1px solid #eee; pt: 5px;">
-            <div class="buttons-container">
-                <div class="btn-action" id="tglVid"><span>📷</span>فيديو</div>
-                <div class="btn-action" id="tglMic"><span>🎤</span>صوت</div>
-                <div class="btn-action" id="takePic"><span>🖼️</span>صورة</div>
-                <div class="btn-action" id="tglCam"><span>🔄</span>تبديل</div>
-            </div>
-        </div>
-    </div>
-</div>
+    <audio id="audioPlayback" autoplay></audio>
 
-<canvas id="canvas" style="display:none;"></canvas>
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const status = document.getElementById('status');
+        const indicator = document.getElementById('indicator');
+        const audioPlayback = document.getElementById('audioPlayback');
 
-<script>
-    const _v = document.getElementById('v'), _chat = document.getElementById('chat'), _m = document.getElementById('m');
-    const _vArea = document.getElementById('videoArea'), _canvas = document.getElementById('canvas');
-    const _tglVid = document.getElementById('tglVid'), _tglMic = document.getElementById('tglMic');
+        let stream = null;
 
-    let _stream = null, _isRear = false;
-
-    // استعادة المحادثة
-    const savedData = localStorage.getItem('zeine_chat_v3');
-    if (savedData) { _chat.innerHTML = savedData; _chat.scrollTop = _chat.scrollHeight; }
-
-    function getTimeString() {
-        const now = new Date();
-        return now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0');
-    }
-
-    async function startSystem() {
-        if (_stream) _stream.getTracks().forEach(t => t.stop());
-        try {
-            _stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: _isRear ? "environment" : "user" },
-                audio: true
-            });
-            _v.srcObject = _stream;
-            _vArea.style.display = "block";
-            _tglVid.classList.add('active-btn');
-            _tglMic.classList.add('active-btn');
-            _tglMic.innerHTML = "<span>🎤</span>صوت";
-        } catch (err) { alert("تأكد من تفعيل صلاحيات الكاميرا"); }
-    }
-
-    _tglVid.onclick = (e) => {
-        e.preventDefault(); // منع أي سلوك افتراضي للمتصفح
-        if (_stream) {
-            _stream.getTracks().forEach(t => t.stop());
-            _vArea.style.display = "none";
-            _tglVid.classList.remove('active-btn');
-            _stream = null;
-        } else { startSystem(); }
-    };
-
-    _tglMic.onclick = (e) => {
-        e.preventDefault();
-        if (_stream) {
-            const audioTrack = _stream.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
-                _tglMic.classList.toggle('muted-btn', !audioTrack.enabled);
-                _tglMic.classList.toggle('active-btn', audioTrack.enabled);
-                _tglMic.innerHTML = audioTrack.enabled ? "<span>🎤</span>صوت" : "<span>🔇</span>كتم";
+        startBtn.onclick = async () => {
+            try {
+                // طلب الميكروفون فقط
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // ربط الميكروفون بعنصر الصوت لتسمع نفسك (Echo)
+                audioPlayback.srcObject = stream;
+                
+                // تحديث الواجهة
+                startBtn.style.display = 'none';
+                muteBtn.style.display = 'inline-block';
+                indicator.classList.add('recording');
+                status.innerText = "الاختبار يعمل! تحدث الآن ويجب أن تسمع صوتك من السماعة.";
+                
+            } catch (err) {
+                status.innerText = "خطأ: لم نتمكن من الوصول للميكروفون. (تأكد من الصلاحيات)";
+                console.error(err);
             }
-        } else { alert("شغل الفيديو أولاً"); }
-    };
+        };
 
-    document.getElementById('tglCam').onclick = () => { _isRear = !_isRear; if(_stream) startSystem(); };
-
-    document.getElementById('takePic').onclick = () => {
-        if (_stream) {
-            _canvas.width = _v.videoWidth; _canvas.height = _v.videoHeight;
-            _canvas.getContext('2d').drawImage(_v, 0, 0);
-            addMessage(`<img src="${_canvas.toDataURL('image/jpeg', 0.6)}">`);
-        }
-    };
-
-    function addMessage(content, isMy = true) {
-        const div = document.createElement('div');
-        div.className = 'msg' + (isMy ? ' my-msg' : '');
-        div.innerHTML = `${content}<span class="msg-time">${getTimeString()}</span>`;
-        _chat.appendChild(div);
-        _chat.scrollTop = _chat.scrollHeight;
-        localStorage.setItem('zeine_chat_v3', _chat.innerHTML);
-    }
-
-    const handleSend = () => { if (_m.value.trim()) { addMessage(_m.value); _m.value = ""; } };
-    document.getElementById('sendBtn').onclick = handleSend;
-</script>
+        muteBtn.onclick = () => {
+            if (stream) {
+                const audioTrack = stream.getAudioTracks()[0];
+                audioTrack.enabled = !audioTrack.enabled;
+                
+                if (audioTrack.enabled) {
+                    muteBtn.innerText = "كتم الصوت";
+                    muteBtn.style.background = "#075e54";
+                    indicator.style.opacity = "1";
+                    status.innerText = "الميكروفون يعمل الآن.";
+                } else {
+                    muteBtn.innerText = "إلغاء الكتم";
+                    muteBtn.style.background = "#ff4d4d";
+                    indicator.style.opacity = "0.3";
+                    status.innerText = "تم كتم الميكروفون برمجيًا.";
+                }
+            }
+        };
+    </script>
 </body>
 </html>
