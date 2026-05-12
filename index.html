@@ -3,80 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إصلاح السماع النهائي - Zeine</title>
+    <title>إصلاح الصلاحيات - Zeine</title>
     <style>
         body { margin: 0; background: #e5ddd5; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
         header { background: #075e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
         #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        
-        .msg { 
-            background: #dcf8c6; 
-            padding: 12px; 
-            border-radius: 12px; 
-            align-self: flex-end; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            max-width: 85%;
-        }
-        audio { width: 100%; height: 45px; display: block; margin-bottom: 5px; }
-        
-        .footer { height: 120px; background: #f0f0f0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-top: 1px solid #ccc; }
-        #micBtn { width: 70px; height: 70px; border-radius: 50%; border: none; background: #075e54; color: white; font-size: 30px; cursor: pointer; }
-        .recording { background: #ff4d4d !important; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .msg { background: #dcf8c6; padding: 12px; border-radius: 12px; align-self: flex-end; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 80%; }
+        audio { width: 100%; height: 45px; }
+        .footer { height: 130px; background: #f0f0f0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-top: 1px solid #ccc; }
+        #micBtn { width: 70px; height: 70px; border-radius: 50%; border: none; background: #075e54; color: white; font-size: 30px; cursor: pointer; transition: 0.3s; }
+        .recording { background: #ff4d4d !important; transform: scale(1.1); }
+        #status { margin-top: 8px; font-size: 14px; color: #333; font-weight: bold; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/RecordRTC/5.6.2/RecordRTC.js"></script>
 </head>
 <body>
 
-<header>نظام Zeine - محادثة العائلة</header>
+<header>نظام Zeine - ربط الميكروفون المباشر</header>
 <div id="chat"></div>
 
 <div class="footer">
-    <button id="micBtn">🎤</button>
-    <div id="status" style="margin-top:5px; font-size:12px;">انقر للتحدث</div>
+    <button id="micBtn" disabled style="opacity: 0.5;">⌛</button>
+    <div id="status">جاري تهيئة الميكروفون...</div>
 </div>
 
 <script>
     const btn = document.getElementById('micBtn');
     const chat = document.getElementById('chat');
     const status = document.getElementById('status');
-    let recorder = null;
-    let stream = null;
+    let recorder, mainStream;
 
-    btn.onclick = async () => {
-        // التحقق الإضافي لضمان عدم حدوث تداخل بين الجلسات
+    // 1. اطلب الميكروفون فور فتح الصفحة ليتم تفعيله مرة واحدة للأبد
+    window.onload = async () => {
+        try {
+            mainStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.innerText = "🎤";
+            status.innerText = "الميكروفون جاهز! اضغط للتحدث";
+        } catch (e) {
+            status.innerText = "فشل الوصول! يرجى تفعيل الميكروفون من إعدادات المتصفح";
+            alert("يجب تفعيل الميكروفون ليعمل التطبيق");
+        }
+    };
+
+    btn.onclick = () => {
         if (!recorder || recorder.getState() === "inactive" || recorder.getState() === "stopped") {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                recorder = new RecordRTC(stream, {
-                    type: 'audio',
-                    mimeType: 'audio/wav', 
-                    recorderType: StereoAudioRecorder, 
-                    numberOfAudioChannels: 1
-                });
-                recorder.startRecording();
-                btn.classList.add('recording');
-                status.innerText = "جاري التسجيل... انقر للإرسال";
-            } catch (e) { alert("الميكروفون محظور!"); }
+            // البدء فوراً باستخدام المسار المفتوح مسبقاً
+            recorder = new RecordRTC(mainStream, {
+                type: 'audio',
+                mimeType: 'audio/wav',
+                recorderType: StereoAudioRecorder,
+                numberOfAudioChannels: 1
+            });
+            
+            recorder.startRecording();
+            btn.classList.add('recording');
+            btn.innerText = "🛑";
+            status.innerText = "جاري التسجيل الآن...";
         } else {
             recorder.stopRecording(() => {
-                const blob = recorder.getBlob();
-                const url = URL.createObjectURL(blob);
-                
+                const url = URL.createObjectURL(recorder.getBlob());
                 const div = document.createElement('div');
                 div.className = 'msg';
                 div.innerHTML = `<audio src="${url}" controls preload="auto"></audio>`;
-                
                 chat.appendChild(div);
                 chat.scrollTop = chat.scrollHeight;
 
-                // تحرير موارد الميكروفون
-                if (stream) {
-                    stream.getTracks().forEach(t => t.stop());
-                }
-                
                 btn.classList.remove('recording');
-                status.innerText = "تم الإرسال! اضغط للبدء مجدداً";
+                btn.innerText = "🎤";
+                status.innerText = "تم الإرسال بنجاح!";
             });
         }
     };
