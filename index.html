@@ -3,131 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام Zeine المطور</title>
     <style>
-        body { font-family: sans-serif; background-color: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        
-        /* رأس الصفحة */
-        .header { background-color: #005e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
-
-        /* منطقة عرض التسجيلات */
-        #recordingsList { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-
-        /* فقاعة الصوت */
-        .voice-msg-card { background: #dcf8c6; padding: 10px; border-radius: 15px; border: 1px solid #c5e1a5; width: fit-content; max-width: 85%; align-self: flex-end; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        audio { height: 35px; width: 220px; }
-
-        /* منطقة التحكم */
-        .controls { background: #f0f0f0; padding: 20px; text-align: center; border-top: 1px solid #ddd; }
-        
-        #recordButton { 
-            background-color: #00796b; border: none; border-radius: 50%; width: 65px; height: 65px; 
-            cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto;
-            transition: all 0.3s ease; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        #status { margin-top: 10px; color: #555; font-size: 14px; }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+        .header { background: #075e54; color: white; padding: 15px; text-align: center; font-size: 1.2em; }
+        #recordingsList { flex: 1; overflow-y: auto; padding: 15px; }
+        .audio-card { background: #ffffff; padding: 15px; border-radius: 12px; margin-bottom: 10px; border-right: 5px solid #25d366; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .controls { padding: 25px; background: #fff; text-align: center; border-top: 1px solid #ddd; }
+        #micBtn { width: 70px; height: 70px; border-radius: 50%; border: none; background: #075e54; color: white; font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .recording { background: #e74c3c !important; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
-    <div class="header">نظام Zeine الصوتي</div>
+<div class="header">نظام Zeine - نسخة سامسونج</div>
+<div id="recordingsList"></div>
 
-    <div id="recordingsList">
-        </div>
+<div class="controls">
+    <button id="micBtn">🎤</button>
+    <p id="status">اضغط للتحدث</p>
+</div>
 
-    <div class="controls">
-        <button id="recordButton">
-            <div id="btnIcon" style="width:20px; height:20px; background:#fff; border-radius:50%;"></div>
-        </button>
-        <p id="status">انقر للميكروفون</p>
-    </div>
+<script>
+    let mediaRecorder;
+    let chunks = [];
 
-    <script>
-        let v_recorder = null;
-        let v_stream = null;
-        let v_audio_data = [];
+    const micBtn = document.getElementById('micBtn');
+    const status = document.getElementById('status');
+    const list = document.getElementById('recordingsList');
 
-        // 1. دالة بدء التسجيل
-        async function start_voice_capture() {
-            v_audio_data = []; 
-            try {
-                v_stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micBtn.onclick = async () => {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // في سامسونج، نستخدم الصيغة الأساسية لضمان التقاط البيانات
+            mediaRecorder = new MediaRecorder(stream);
+            chunks = [];
+
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+                const url = URL.createObjectURL(blob);
                 
-                // تحديد نوع الملف لضمان أقصى توافق
-                const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-                                 ? 'audio/webm;codecs=opus' 
-                                 : 'audio/ogg;codecs=opus';
+                // إنشاء البطاقة
+                const card = document.createElement('div');
+                card.className = 'audio-card';
+                card.innerHTML = `
+                    <audio src="${url}" controls style="width: 100%;"></audio>
+                    <div style="margin-top:5px; font-size:12px; color:#888;">تم التسجيل بنجاح ✅</div>
+                `;
+                list.appendChild(card);
+                list.scrollTop = list.scrollHeight;
 
-                v_recorder = new MediaRecorder(v_stream, { mimeType });
+                // إغلاق الميكروفون
+                stream.getTracks().forEach(t => t.stop());
+                updateUI(false);
+            };
 
-                v_recorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) v_audio_data.push(e.data);
-                };
+            mediaRecorder.start();
+            updateUI(true);
 
-                v_recorder.onstop = finalize_audio_render;
-
-                v_recorder.start();
-                update_ui_state(true); 
-            } catch (err) {
-                alert("يجب السماح بالوصول للميكروفون للتشغيل.");
-                console.error(err);
-            }
+        } catch (err) {
+            alert("تأكد من إعطاء صلاحية الميكروفون للمتصفح في إعدادات سامسونج");
         }
+    };
 
-        // 2. دالة إيقاف التسجيل
-        function stop_voice_capture() {
-            if (v_recorder && v_recorder.state !== "inactive") {
-                v_recorder.stop();
-                v_stream.getTracks().forEach(t => t.stop()); // إغلاق الميكروفون فعلياً
-                update_ui_state(false);
-            }
+    function updateUI(isRecording) {
+        if (isRecording) {
+            micBtn.classList.add('recording');
+            micBtn.innerHTML = "⏹️";
+            status.innerText = "جاري التسجيل... انقر للإيقاف";
+        } else {
+            micBtn.classList.remove('recording');
+            micBtn.innerHTML = "🎤";
+            status.innerText = "اضغط للتحدث مرة أخرى";
         }
+    }
+</script>
 
-        // 3. دالة المعالجة النهائية وعرض الصوت
-        function finalize_audio_render() {
-            if (v_audio_data.length === 0) return;
-
-            const audio_blob = new Blob(v_audio_data, { type: v_recorder.mimeType });
-            const audio_url = URL.createObjectURL(audio_blob);
-            
-            const card = document.createElement('div');
-            card.className = "voice-msg-card";
-            card.innerHTML = `
-                <audio src="${audio_url}" controls></audio>
-                <div style="font-size: 10px; color: #777; margin-top: 4px; text-align: left;">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-            `;
-            
-            const list = document.getElementById('recordingsList');
-            list.appendChild(card);
-            list.scrollTop = list.scrollHeight; // النزول لآخر رسالة
-        }
-
-        // 4. تحديث شكل الواجهة
-        function update_ui_state(is_recording) {
-            const btn = document.getElementById('recordButton');
-            const icon = document.getElementById('btnIcon');
-            const status = document.getElementById('status');
-            
-            if (is_recording) {
-                btn.style.backgroundColor = "#ff5252";
-                icon.style.borderRadius = "4px"; // تحويل الدائرة لمربع
-                status.innerText = "جاري التسجيل... انقر للإيقاف";
-            } else {
-                btn.style.backgroundColor = "#00796b";
-                icon.style.borderRadius = "50%"; // العودة لشكل الدائرة
-                status.innerText = "تم الحفظ. انقر للتسجيل مجدداً";
-            }
-        }
-
-        // 5. منطق النقر على الزر
-        document.getElementById('recordButton').onclick = () => {
-            if (!v_recorder || v_recorder.state === "inactive") {
-                start_voice_capture();
-            } else {
-                stop_voice_capture();
-            }
-        };
-    </script>
 </body>
 </html>
