@@ -3,96 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zeine Voice Chat</title>
+    <title>Zeine Messenger - Voice Only</title>
     <style>
-        :root { --primary: #075e54; --bg: #e5ddd5; --msg-color: #dcf8c6; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { height: 100vh; display: flex; flex-direction: column; background: var(--bg); font-family: sans-serif; overflow: hidden; }
+        :root { --primary: #075e54; --accent: #25d366; --bg-chat: #efe7de; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         
-        /* منطقة الرسائل */
-        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { background: white; padding: 8px; border-radius: 10px; align-self: flex-start; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .my-msg { background: var(--msg-color); align-self: flex-end; }
-        audio { max-width: 100%; margin-top: 5px; height: 35px; }
+        body, html { height: 100%; width: 100%; overflow: hidden; background: var(--bg-chat); font-family: sans-serif; }
+        
+        .main-container { display: flex; flex-direction: column; height: 100vh; }
 
-        /* منطقة التحكم - الميكروفون فقط */
-        .controls { height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-top: 1px solid #ddd; }
+        header { 
+            height: 60px; background: var(--primary); color: white; 
+            display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; flex-shrink: 0;
+        }
+
+        /* منطقة الرسائل تأخذ كل المساحة المتاحة */
+        #chat { 
+            flex: 1; overflow-y: auto; padding: 15px; 
+            display: flex; flex-direction: column; gap: 12px; background: #e5ddd5; 
+        }
         
+        .msg { 
+            background: white; padding: 10px; border-radius: 15px; 
+            align-self: flex-start; max-width: 85%; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.15); 
+        }
+        
+        .my-msg { background: #dcf8c6; align-self: flex-end; }
+        
+        audio { width: 100%; max-width: 220px; height: 35px; margin-top: 5px; }
+
+        /* منطقة التحكم السفلية (الميكروفون فقط) */
+        .footer { 
+            height: 100px; background: #f0f0f0; border-top: 1px solid #ddd;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; padding-bottom: env(safe-area-inset-bottom);
+        }
+
         #micBtn {
             width: 70px; height: 70px; border-radius: 50%;
             background: var(--primary); color: white; border: none;
             font-size: 30px; cursor: pointer; transition: 0.3s;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
-        .recording { background: #f44336 !important; transform: scale(1.2); animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(244, 67, 54, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); } }
+
+        .recording { background: #ff4d4d !important; transform: scale(1.1); animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
+        }
     </style>
 </head>
 <body>
 
-    <div id="chat"></div>
+<div class="main-container">
+    <header>نظام تواصل العائلة - Zeine</header>
 
-    <div class="controls">
-        <button id="micBtn">🎤</button>
+    <div id="chat">
+        <div class="msg">أهلاً بك! اضغط مطولاً أو انقر على الميكروفون للتسجيل والإرسال.</div>
     </div>
 
-    <script>
-        const _micBtn = document.getElementById('micBtn');
-        const _chat = document.getElementById('chat');
+    <div class="footer">
+        <button id="micBtn">🎤</button>
+    </div>
+</div>
+
+<script>
+    const _chat = document.getElementById('chat');
+    const _micBtn = document.getElementById('micBtn');
+    
+    let recorder, chunks = [];
+
+    // إعداد الميكروفون والمسجل
+    async function initRecorder() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            recorder = new MediaRecorder(stream);
+
+            recorder.ondataavailable = (e) => chunks.push(e.data);
+
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+                const audioURL = URL.createObjectURL(blob);
+                addVoiceMessage(audioURL);
+                chunks = []; // إعادة تهيئة البيانات للتسجيل القادم
+            };
+
+            // البدء الفعلي بعد الإعداد
+            startRecording();
+        } catch (err) {
+            alert("يرجى السماح بالوصول للميكروفون من إعدادات المتصفح.");
+        }
+    }
+
+    function startRecording() {
+        chunks = [];
+        recorder.start();
+        _micBtn.classList.add('recording');
+        _micBtn.innerText = "🛑";
+    }
+
+    function stopRecording() {
+        recorder.stop();
+        _micBtn.classList.remove('recording');
+        _micBtn.innerText = "🎤";
+    }
+
+    _micBtn.onclick = () => {
+        if (!recorder || recorder.state === "inactive") {
+            if (!recorder) initRecorder(); 
+            else startRecording();
+        } else {
+            stopRecording();
+        }
+    };
+
+    function addVoiceMessage(url) {
+        const div = document.createElement('div');
+        div.className = 'msg my-msg';
+        const time = new Date().toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'});
         
-        let recorder, chunks = [];
+        div.innerHTML = `
+            <div style="font-size: 11px; color: #555; margin-bottom: 5px;">رسالة صوتية</div>
+            <audio src="${url}" controls></audio>
+            <div style="font-size: 9px; color: #888; text-align: left; margin-top: 4px;">${time}</div>
+        `;
+        
+        _chat.appendChild(div);
+        _chat.scrollTop = _chat.scrollHeight;
+    }
+</script>
 
-        // تفعيل الميكروفون وإعداد المسجل
-        async function setupMic() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                recorder = new MediaRecorder(stream);
-
-                recorder.ondataavailable = e => chunks.push(e.data);
-
-                recorder.onstop = () => {
-                    const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-                    const url = URL.createObjectURL(blob);
-                    addVoiceMessage(url);
-                    chunks = []; // تنظيف الذاكرة للتسجيل القادم
-                };
-
-                startRecording();
-            } catch (err) { alert("يجب السماح بالوصول للميكروفون"); }
-        }
-
-        function startRecording() {
-            chunks = [];
-            recorder.start();
-            _micBtn.classList.add('recording');
-            _micBtn.innerText = "🛑";
-        }
-
-        function stopRecording() {
-            recorder.stop();
-            _micBtn.classList.remove('recording');
-            _micBtn.innerText = "🎤";
-        }
-
-        _micBtn.onclick = () => {
-            if (!recorder || recorder.state === "inactive") {
-                if (!recorder) setupMic(); else startRecording();
-            } else {
-                stopRecording();
-            }
-        };
-
-        function addVoiceMessage(url) {
-            const div = document.createElement('div');
-            div.className = 'msg my-msg';
-            div.innerHTML = `
-                <div style="font-size: 12px; margin-bottom: 5px;">رسالة صوتية</div>
-                <audio src="${url}" controls></audio>
-            `;
-            _chat.appendChild(div);
-            _chat.scrollTop = _chat.scrollHeight;
-        }
-    </script>
 </body>
 </html>
