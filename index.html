@@ -1,84 +1,66 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>فحص الميكروفون فقط</title>
+    <title>اختبار الميكروفون فقط</title>
     <style>
-        body { 
-            margin: 0; height: 100vh; display: flex; align-items: center; 
-            justify-content: center; background: #222; font-family: sans-serif;
+        body {
+            margin: 0; padding: 0; height: 100vh;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #121212; color: white; font-family: sans-serif;
         }
-
-        /* حاوية الميكروفون المركزية */
-        .mic-container { text-align: center; color: white; }
-
-        .mic-circle {
-            width: 150px; height: 150px; border-radius: 50%;
-            background: #444; display: flex; align-items: center;
-            justify-content: center; font-size: 60px; margin-bottom: 20px;
-            cursor: pointer; transition: 0.3s; border: 5px solid transparent;
+        #micBtn {
+            width: 200px; height: 200px; border-radius: 50%;
+            background: #333; border: 8px solid #555;
+            font-size: 80px; cursor: pointer; transition: 0.3s;
+            display: flex; align-items: center; justify-content: center;
         }
-
-        /* حالات الألوان */
-        .ready { border-color: #25d366; background: #075e54; box-shadow: 0 0 20px #25d366; }
-        .muted { border-color: #f44336; background: #b71c1c; box-shadow: 0 0 20px #f44336; }
-
-        .status-text { font-size: 18px; margin-top: 10px; }
-        button { 
-            padding: 12px 25px; border-radius: 25px; border: none; 
-            background: #25d366; color: white; font-size: 16px; font-weight: bold;
-        }
+        .active { background: #25d366 !important; border-color: #dcf8c6 !important; box-shadow: 0 0 30px #25d366; }
+        .muted { background: #f44336 !important; border-color: #ffcdd2 !important; }
+        #status { margin-top: 20px; font-size: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="mic-container">
-        <div id="micBtn" class="mic-circle" style="display:none;">🎤</div>
-        <button id="startBtn">اضغط لتشغيل الميكروفون</button>
-        <div id="status" class="status-text">الميكروفون مغلق</div>
-    </div>
+    <div id="micBtn">🎤</div>
+    <div id="status">اضغط على الميكروفون للبدء</div>
 
-    <audio id="echo" autoplay></audio>
+    <audio id="playback" autoplay></audio>
 
     <script>
-        const micBtn = document.getElementById('micBtn');
-        const startBtn = document.getElementById('startBtn');
+        const btn = document.getElementById('micBtn');
         const status = document.getElementById('status');
-        const echo = document.getElementById('echo');
-
+        const playback = document.getElementById('playback');
         let stream = null;
 
-        startBtn.onclick = async () => {
-            try {
-                // طلب الميكروفون فقط بدقة
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // جعل الصوت يخرج من السماعة لتتأكد بنفسك
-                echo.srcObject = stream;
-
-                startBtn.style.display = 'none';
-                micBtn.style.display = 'flex';
-                micBtn.classList.add('ready');
-                status.innerText = "الميكروفون يعمل (تحدث الآن)";
-            } catch (err) {
-                status.innerText = "خطأ: لم تسمح بالوصول للميكروفون";
-            }
-        };
-
-        micBtn.onclick = () => {
-            if (stream) {
+        btn.onclick = async () => {
+            if (!stream) {
+                // تفعيل الميكروفون لأول مرة
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    playback.srcObject = stream;
+                    btn.classList.add('active');
+                    status.innerText = "الميكروفون يعمل.. تحدث الآن";
+                } catch (err) {
+                    alert("يجب إعطاء صلاحية الميكروفون من المتصفح");
+                }
+            } else {
+                // تبديل حالة الميكروفون (كتم / تشغيل)
                 const track = stream.getAudioTracks()[0];
                 track.enabled = !track.enabled;
-
+                
                 if (track.enabled) {
-                    micBtn.className = "mic-circle ready";
-                    micBtn.innerText = "🎤";
+                    btn.classList.remove('muted');
+                    btn.classList.add('active');
+                    btn.innerText = "🎤";
                     status.innerText = "الميكروفون يعمل";
                 } else {
-                    micBtn.className = "mic-circle muted";
-                    micBtn.innerText = "🔇";
-                    status.innerText = "تم كتم الميكروفون";
+                    btn.classList.remove('active');
+                    btn.classList.add('muted');
+                    btn.innerText = "🔇";
+                    status.innerText = "تم كتم الصوت";
                 }
             }
         };
