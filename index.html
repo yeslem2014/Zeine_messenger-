@@ -1,78 +1,77 @@
-<div id="recordingsList"></div>
+<div id="recordingsList" style="height: 300px; overflow-y: auto; padding: 10px;"></div>
 
 <div style="text-align: center; margin-top: 20px;">
-    <button id="recordButton" style="background: #006655; border: none; border-radius: 50%; padding: 15px; cursor: pointer;">
-        <img id="micIcon" src="https://img.icons8.com/m_rounded/25/ffffff/microphone.png" alt="Mic">
+    <button id="recordButton" style="background: #006655; border: none; border-radius: 50%; width: 70px; height: 70px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+        <div id="recordIcon" style="width: 20px; height: 20px; background: white; border-radius: 50%;"></div>
     </button>
-    <p id="status" style="color: #666; font-size: 14px;">اضغط للتسجيل</p>
+    <p id="status" style="color: #666; margin-top: 10px;">اضغط للبدء</p>
 </div>
 
 <script>
     let mediaRecorder;
     let audioChunks = [];
     const recordButton = document.getElementById('recordButton');
+    const recordIcon = document.getElementById('recordIcon');
     const statusText = document.getElementById('status');
     const recordingsList = document.getElementById('recordingsList');
 
     recordButton.addEventListener('click', async () => {
-        if (mediaRecorder && mediaRecorder.state === "recording") {
-            stopRecording();
-        } else {
+        if (!mediaRecorder || mediaRecorder.state === "inactive") {
             startRecording();
+        } else {
+            stopRecording();
         }
     });
 
     async function startRecording() {
+        audioChunks = [];
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            // تحديد التنسيق المدعوم (WebM Opus هو الأفضل للمتصفحات الحديثة)
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-            
-            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
+
             mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) audioChunks.push(event.data);
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
             };
 
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                // دمج البيانات وتحويلها إلى ملف صوتي بعد التأكد من التوقف
+                const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' });
                 const audioUrl = URL.createObjectURL(audioBlob);
-                addAudioToUI(audioUrl);
+                displayAudio(audioUrl);
                 
-                // هنا يمكنك إضافة كود إرسال الـ Blob إلى السيرفر الخاص بك
+                // إغلاق الميكروفون نهائياً
+                stream.getTracks().forEach(track => track.stop());
             };
 
             mediaRecorder.start();
-            statusText.innerText = "جاري التسجيل... انقر للإيقاف";
-            recordButton.style.backgroundColor = "#cc0000"; // تغيير اللون للأحمر أثناء التسجيل
+            statusText.innerText = "جاري التسجيل...";
+            recordButton.style.backgroundColor = "#ff4444";
+            recordIcon.style.borderRadius = "4px"; // تغيير الشكل لمربع (إيقاف)
         } catch (err) {
-            console.error("تعذر الوصول للميكروفون:", err);
-            alert("يرجى السماح بالوصول للميكروفون.");
+            alert("يرجى تفعيل صلاحية الميكروفون");
         }
     }
 
     function stopRecording() {
         mediaRecorder.stop();
-        // إيقاف جميع مسارات الميكروفون لتوفير الطاقة وإغلاق ضوء الميكروفون
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
-        
-        statusText.innerText = "تم التسجيل";
+        statusText.innerText = "تم الحفظ";
         recordButton.style.backgroundColor = "#006655";
+        recordIcon.style.borderRadius = "50%"; // العودة لشكل الدائرة
     }
 
-    function addAudioToUI(url) {
-        const audioWrapper = document.createElement('div');
-        audioWrapper.style.cssText = "background: #e1f5fe; padding: 10px; border-radius: 15px; margin: 10px; display: inline-block; width: 80%;";
+    function displayAudio(url) {
+        const div = document.createElement('div');
+        div.style.cssText = "background: #dcf8c6; padding: 10px; border-radius: 10px; margin: 5px; text-align: right; float: right; clear: both; width: 80%;";
         
         const audio = document.createElement('audio');
-        audio.controls = true;
         audio.src = url;
+        audio.controls = true;
         audio.style.width = "100%";
         
-        audioWrapper.appendChild(audio);
-        recordingsList.appendChild(audioWrapper);
-        
-        // التمرير لأسفل تلقائياً لرؤية التسجيل الجديد
+        div.appendChild(audio);
+        recordingsList.appendChild(div);
         recordingsList.scrollTop = recordingsList.scrollHeight;
     }
 </script>
