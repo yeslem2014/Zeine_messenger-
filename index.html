@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>اصلاح مسجل الصوت - Zeine</title>
+    <title>اصلاح الصوت النهائي - Zeine</title>
     <style>
         body { margin: 0; background: #e5ddd5; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
         header { background: #075e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
         #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         
-        /* تصميم فقاعة الرسالة الصوتية */
         .msg { background: #dcf8c6; padding: 8px; border-radius: 12px; align-self: flex-end; width: fit-content; box-shadow: 0 1px 2px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 5px; }
         .msg audio { max-width: 260px; height: 40px; }
         .msg-title { font-size: 11px; color: #075e54; font-weight: bold; }
@@ -43,70 +42,75 @@
     let stream = null;
 
     micBtn.onclick = async () => {
-        // إذا كان التسجيل متوقفاً، نبدأ تسجيل جديد
         if (!mediaRecorder || mediaRecorder.state === "inactive") {
             try {
-                // طلب صلاحية الميكروفون من المستخدم
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // إعدادات الميكروفون لرفع جودة التقاط الصوت وتوافقيته
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
                 
-                // تحديد أفضل صيغة يدعمها المتصفح تلقائياً (تجنباً لمشاكل mp3)
-                let options = { mimeType: 'audio/webm' };
+                // تحديد صيغة تضمن عمل الصوت وسماعه داخل المتصفحات بوضوح
+                let options = { mimeType: 'audio/webm;codecs=opus' };
                 if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    options = { mimeType: 'audio/ogg' }; // للهواتف والمتصفحات القديمة
+                    options = { mimeType: 'audio/mp4' }; // التوافقية مع هواتف آيفون (Safari)
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'audio/aac' };
+                    }
                 }
 
                 mediaRecorder = new MediaRecorder(stream, options);
-                audioChunks = []; // تفريغ البيانات السابقة
+                audioChunks = []; 
 
-                // تجميع البيانات الصوتية أثناء التسجيل
                 mediaRecorder.ondataavailable = e => {
-                    if (e.data.size > 0) {
-                        audioChunks.push(e.data);
-                    }
+                    if (e.data.size > 0) audioChunks.push(e.data);
                 };
 
-                // معالجة الصوت فور الضغط على زر الإيقاف
                 mediaRecorder.onstop = () => {
-                    // دمج البيانات الصوتية وإنشاء ملف ميموري مؤقت وصالح
+                    // دمج ترميز الصوت الصحيح بناءً على الصيغة المختارة
                     const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
                     const audioUrl = URL.createObjectURL(audioBlob);
                     
-                    // توليد وقت إرسال الرسالة الحالي
                     const now = new Date();
                     const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
-                    // بناء عنصر الرسالة داخل صندوق المحادثة
                     const div = document.createElement('div');
                     div.className = 'msg';
-                    div.innerHTML = `
-                        <span class="msg-title">رسالة صوتية</span>
-                        <audio src="${audioUrl}" controls></audio>
-                        <span class="msg-time">${timeStr}</span>
-                    `;
+                    
+                    // إنشاء عنصر مشغل الصوت برمجياً للتأكد من إعادة تحميل الملف بالكامل
+                    const audioEl = document.createElement('audio');
+                    audioEl.src = audioUrl;
+                    audioEl.controls = true;
+                    
+                    div.innerHTML = `<span class="msg-title">رسالة صوتية</span>`;
+                    div.appendChild(audioEl);
+                    div.innerHTML += `<span class="msg-time">${timeStr}</span>`;
                     
                     chatBox.appendChild(div);
-                    chatBox.scrollTop = chatBox.scrollHeight; // النزول التلقائي لآخر رسالة
+                    chatBox.scrollTop = chatBox.scrollHeight; 
 
-                    // إغلاق الميكروفون تماماً لتحرير موارد الجهاز وحفظ البطارية
+                    // إجبار المتصفح على قراءة وتحديث مسار الصوت فوراً ليصبح جاهزاً للاستماع
+                    audioEl.load();
+
                     if (stream) {
                         stream.getTracks().forEach(track => track.stop());
                     }
                 };
 
-                // تشغيل التسجيل فعلياً
                 mediaRecorder.start();
                 
-                // تحديث شكل الزر والنص للمستخدم
                 micBtn.classList.add('recording');
                 micBtn.innerText = "🛑";
                 statusTxt.innerText = "جاري التسجيل الآن... انقر للإرسال";
 
             } catch (err) {
-                console.error("خطأ في الميكروفون:", err);
-                alert("تعذر الوصول للميكروفون. يرجى تفعيل الصلاحية من إعدادات المتصفح وقفل أي تطبيق آخر يستخدمه.");
+                console.error("خطأ:", err);
+                alert("يرجى تفعيل صلاحية الميكروفون من إعدادات الموقع.");
             }
         } else {
-            // إيقاف التسجيل وتوليد الرسالة فوراً
             mediaRecorder.stop();
             micBtn.classList.remove('recording');
             micBtn.innerText = "🎤";
