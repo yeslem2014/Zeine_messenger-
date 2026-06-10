@@ -1,7 +1,0 @@
-{
-  "name": "Zeine_messenger",
-  "short_name": "Messenger",
-  "start_url": "index.html",
-  "display": "standalone",
-  "background_color": "#075e54"
-}
