@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zeine Messenger</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <style>
+        /* 🚫 ممنوع التعديل - جميع التصميمات الأصلية */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background: #e5ddd5; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* واجهة المستخدم العادي */
+        .user-header { background: #075e54; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .user-header h3 { font-size: 18px; }
+        .media-buttons button { background: rgba(255,255,255,0.2); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; margin: 0 4px; cursor: pointer; font-size: 18px; }
+        .chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; background: #e5ddd5; }
+        .message { max-width: 75%; padding: 10px 14px; border-radius: 18px; font-size: 14px; word-wrap: break-word; }
+        .message.me { background: #dcf8c6; align-self: flex-end; }
+        .message.other { background: white; align-self: flex-start; }
+        .message-time { font-size: 10px; color: #888; margin-top: 4px; text-align: left; display: block; }
+        .input-footer { background: #f0f0f0; padding: 12px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
+        .input-footer input { flex: 1; padding: 12px; border: none; border-radius: 25px; outline: none; }
+        .input-footer button { background: #075e54; border: none; width: 48px; border-radius: 50%; color: white; cursor: pointer; }
+        
+        /* لوحة تحكم المالك */
+        .owner-header { background: #075e54; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .owner-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; padding: 15px; flex: 1; overflow-y: auto; }
+        .owner-chat-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 380px; }
+        .owner-chat-title { background: #128c7e; color: white; padding: 10px; font-weight: bold; }
+        .owner-chat-messages { flex: 1; overflow-y: auto; padding: 10px; font-size: 13px; background: #f8f9fa; }
+        .owner-chat-messages div { margin-bottom: 5px; padding: 5px; border-radius: 8px; }
+        .owner-chat-messages b { color: #075e54; }
+        
+        /* قوائم وأزرار مشتركة */
+        .attach-menu, .rooms-popup { position: fixed; bottom: 80px; right: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; flex-direction: column; padding: 10px; gap: 12px; z-index: 1000; min-width: 130px; }
+        .menu-item { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #075e54; padding: 8px; gap: 12px; }
+        .rec-active { color: #f44336 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        img { max-width: 200px; border-radius: 8px; }
+        audio { width: 200px; height: 40px; }
+        #bar { background: #f0f0f0; padding: 8px 12px; display: flex; align-items: center; border-top: 1px solid #ddd; position: relative; }
+        .tools-right { display: flex; gap: 18px; padding-left: 10px; color: #555; font-size: 24px; }
+        .tools-right i { cursor: pointer; }
+        #msgInput { flex: 1; border: none; padding: 12px 15px; border-radius: 25px; outline: none; }
+        .hidden { display: none !important; }
+        
+        /* تنسيق رسائل الخطأ */
+        .error-screen {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #ff4444; color: white; padding: 20px; z-index: 9999;
+            font-family: monospace; font-size: 14px; overflow: auto;
+            direction: ltr; text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- واجهة المستخدم العادي -->
+    <div id="userScreen" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+        <div class="user-header">
+            <h3 id="userRoomTitle">غرفة المحادثة</h3>
+            <div class="media-buttons">
+                <button id="camBtn">📷</button>
+                <button id="micBtn">🎤</button>
+            </div>
+        </div>
+        <div id="userChatArea" class="chat-area"></div>
+        <div class="input-footer">
+            <input type="text" id="userMsgInput" placeholder="اكتب رسالة...">
+            <button id="userSendBtn">➤</button>
+        </div>
+    </div>
+
+    <!-- واجهة المالك -->
+    <div id="ownerScreen" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+        <div class="owner-header">
+            <div>Zeine Messenger - لوحة التحكم الشاملة</div>
+            <button id="logoutBtn" style="background:#ff4444; border:none; color:white; padding:6px 16px; border-radius:20px;">خروج</button>
+        </div>
+        <div id="ownerDashboard" class="owner-dashboard"></div>
+    </div>
+
+    <!-- شريط الإدخال والقوائم (يظهر للمالك فقط) -->
+    <div id="ownerBar" class="hidden">
+        <div id="bar">
+            <div class="tools-right">
+                <i class="fas fa-microphone" id="micBtnBottom"></i>
+                <i class="fas fa-paperclip" id="clipBtn"></i>
+            </div>
+            <input type="text" id="msgInput" placeholder="اكتب رسالة...">
+        </div>
+    </div>
+
+    <div id="attachMenu" class="attach-menu">
+        <div class="menu-item" onclick="openCamera()"><span>الكاميرا</span><i class="fas fa-camera"></i></div>
+        <div class="menu-item" onclick="sendLocation()"><span>الموقع</span><i class="fas fa-map-marker-alt"></i></div>
+        <div class="menu-item" onclick="document.getElementById('galleryFile').click()"><span>المعرض</span><i class="fas fa-image"></i></div>
+        <div class="menu-item" onclick="shareChat()"><span>مشاركة</span><i class="fas fa-share-alt"></i></div>
+        <div class="menu-item" onclick="pickContact()"><span>جهات الاتصال</span><i class="fas fa-address-book"></i></div>
+        <div class="menu-item" onclick="sendSMS()"><span>رسالة نصية</span><i class="fas fa-sms"></i></div>
+    </div>
+
+    <div id="roomsPopup" class="rooms-popup" style="display:none;"></div>
+
+    <input type="file" id="galleryFile" accept="image/*" style="display:none">
+    <input type="file" id="cameraFile" accept="image/*" capture="environment" style="display:none">
+    <audio id="notifSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3" preload="auto"></audio>
+
+    <script>
+        // ========== نظام التقاط الأخطاء وعرضها ==========
+        window.onerror = function(msg, url, line) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-screen';
+            errorDiv.innerHTML = `<strong>⚠️ خطأ جافا سكريبت:</strong><br>${msg}<br><strong>السطر:</strong> ${line}`;
+            document.body.appendChild(errorDiv);
+            console.error(msg, url, line);
+            return true;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-screen';
+            errorDiv.innerHTML = `<strong>🚫 خطأ Firebase/Promise غير مُعالج:</strong><br>${event.reason}`;
+            document.body.appendChild(errorDiv);
+            console.error(event.reason);
+        });
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaUC9ihg9rwmvILYxnYYC9dUYjhD7b4Ww",
+            authDomain: "mymessenger-4124d.firebaseapp.com",
+            databaseURL: "https://mymessenger-4124d-default-rtdb.firebaseio.com/",
+            projectId: "mymessenger-4124d",
+            storageBucket: "mymessenger-4124d.firebasestorage.app"
+        };
+        
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const auth = firebase.auth();
+        let db, storage;
+        let currentUserRole = null;
+        let currentRoomId = null;
+        let currentUserName = null;
+        let ownerActiveRoom = 'general';
+
+        // ========== تهيئة Firebase مع معالجة الأخطاء ==========
+        async function initFirebase() {
+            try {
+                // محاولة تسجيل الدخول المجهول
+                await auth.signInAnonymously();
+                console.log("✅ تم تسجيل الدخول المجهول بنجاح");
+                // تعريف المراجع بعد نجاح المصادقة
+                db = firebase.database().ref('final_perfect_v12');
+                storage = firebase.storage();
+                startApp();
+            } catch (error) {
+                console.error("❌ فشل تسجيل الدخول المجهول:", error);
+                // عرض رسالة خطأ للمستخدم بدلاً من الصفحة البيضاء
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-screen';
+                errorDiv.innerHTML = `<strong>🔥 فشل الاتصال بخدمات Firebase</strong><br><br>
+                <strong>السبب المحتمل:</strong> ${error.message || error}<br><br>
+                <strong>الحلول المقترحة:</strong><br>
+                1. تأكد من صحة مفتاح API في الكود.<br>
+                2. أضف النطاق <code>yeslem2014.github.io</code> إلى قائمة النطاقات المسموحة في Firebase Console (Authentication → Settings).<br>
+                3. تحقق من اتصالك بالإنترنت.<br>
+                4. تأكد من تفعيل خدمة "Anonymous Authentication" في Firebase Console.`;
+                document.body.appendChild(errorDiv);
+            }
+        }
+
+        function startApp() {
+            const isOwner = localStorage.getItem('zeine_owner') === 'true';
+            const storedUser = JSON.parse(localStorage.getItem('zeine_user') || '{}');
+            if (isOwner) {
+                currentUserRole = 'owner';
+                currentUserName = 'zeine';
+                document.getElementById('ownerScreen').classList.remove('hidden');
+                document.getElementById('ownerBar').classList.remove('hidden');
+                initOwnerDashboard();
+                attachOwnerEvents();
+            } else if (storedUser.name) {
+                currentUserRole = 'member';
+                currentUserName = storedUser.name;
+                currentRoomId = storedUser.room || 'general';
+                document.getElementById('userScreen').classList.remove('hidden');
+                document.getElementById('userRoomTitle').innerText = `غرفة: ${currentRoomId}`;
+                initUserChat(currentRoomId);
+                attachUserEvents();
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+
+        // ========== Owner Functions ==========
+        let ownerUnsubscribes = [];
+        function initOwnerDashboard() {
+            const dashboard = document.getElementById('ownerDashboard');
+            dashboard.innerHTML = '';
+            ownerUnsubscribes.forEach(unsub => unsub());
+            ownerUnsubscribes = [];
+            const rooms = ['general', 'family', 'friends', 'private'];
+            rooms.forEach(room => {
+                const card = document.createElement('div');
+                card.className = 'owner-chat-card';
+                card.innerHTML = `<div class="owner-chat-title">📢 ${room}</div><div class="owner-chat-messages" id="ownerArea_${room}"></div>`;
+                dashboard.appendChild(card);
+                const roomRef = db.child(room);
+                const unsubscribe = roomRef.on('value', (snap) => {
+                    const area = document.getElementById(`ownerArea_${room}`);
+                    area.innerHTML = '';
+                    const msgs = [];
+                    snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
+                    msgs.sort((a,b) => a.time - b.time);
+                    msgs.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.innerHTML = `<b>${msg.sender}</b>: ${msg.body} <span style="font-size:10px; color:#aaa;">${new Date(msg.time).toLocaleTimeString()}</span>`;
+                        area.appendChild(div);
+                    });
+                    area.scrollTop = area.scrollHeight;
+                });
+                ownerUnsubscribes.push(() => roomRef.off());
+            });
+        }
+
+        async function sendOwnerMessage() {
+            const input = document.getElementById('msgInput');
+            const text = input.value.trim();
+            if (!text) return;
+            await db.child(ownerActiveRoom).push({
+                body: text,
+                time: Date.now(),
+                sender: 'zeine',
+                type: 'text',
+                isOwner: true
+            });
+            input.value = '';
+        }
+
+        function toggleRoomsPopup() {
+            const popup = document.getElementById('roomsPopup');
+            if (popup.style.display === 'block') { popup.style.display = 'none'; return; }
+            popup.innerHTML = `<div class="menu-item" onclick="setOwnerRoom('general'); document.getElementById('roomsPopup').style.display='none';">العامة</div>
+                               <div class="menu-item" onclick="setOwnerRoom('family'); document.getElementById('roomsPopup').style.display='none';">العائلة</div>
+                               <div class="menu-item" onclick="setOwnerRoom('friends'); document.getElementById('roomsPopup').style.display='none';">الأصدقاء</div>
+                               <div class="menu-item" onclick="setOwnerRoom('private'); document.getElementById('roomsPopup').style.display='none';">الخاصة</div>`;
+            popup.style.display = 'block';
+        }
+        window.setOwnerRoom = (room) => { ownerActiveRoom = room; };
+
+        // ========== User Functions ==========
+        let userUnsubscribe = null;
+        function initUserChat(roomId) {
+            if (userUnsubscribe) userUnsubscribe();
+            const roomRef = db.child(roomId);
+            userUnsubscribe = roomRef.on('value', (snap) => {
+                const area = document.getElementById('userChatArea');
+                area.innerHTML = '';
+                const msgs = [];
+                snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
+                msgs.sort((a,b) => a.time - b.time);
+                msgs.forEach(msg => {
+                    const isMe = (msg.sender === currentUserName);
+                    const div = document.createElement('div');
+                    div.className = `message ${isMe ? 'me' : 'other'}`;
+                    let body = msg.body;
+                    if (msg.type === 'image') body = `<img src="${body}">`;
+                    else if (msg.type === 'audio') body = `<audio controls src="${body}"></audio>`;
+                    else if (msg.type === 'location') body = `<a href="${body}" target="_blank">📍 الموقع</a>`;
+                    div.innerHTML = `<div>${body}</div><span class="message-time">${new Date(msg.time).toLocaleTimeString()}</span>`;
+                    area.appendChild(div);
+                });
+                area.scrollTop = area.scrollHeight;
+            });
+        }
+
+        async function sendUserMessage() {
+            const input = document.getElementById('userMsgInput');
+            const text = input.value.trim();
+            if (!text || !currentRoomId) return;
+            await db.child(currentRoomId).push({
+                body: text,
+                time: Date.now(),
+                sender: currentUserName,
+                type: 'text'
+            });
+            input.value = '';
+        }
+
+        // ========== Native App Invocation ==========
+        window.makeVoiceCall = () => {
+            let phone = prompt("أدخل رقم الهاتف:", "+22237454444");
+            if (phone) window.location.href = `tel:${phone}`;
+        };
+        window.makeVideoCall = () => {
+            let phone = prompt("أدخل رقم الهاتف لمكالمة فيديو:", "+22237454444");
+            if (phone) window.location.href = `tel:${phone}`;
+        };
+        window.sendLocation = () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async (p) => {
+                    const url = `https://www.google.com/maps/search/?api=1&query=${p.coords.latitude},${p.coords.longitude}`;
+                    const room = currentUserRole === 'owner' ? ownerActiveRoom : currentRoomId;
+                    await db.child(room).push({
+                        body: url,
+                        time: Date.now(),
+                        sender: currentUserName,
+                        type: 'location'
+                    });
+                    window.open(url, '_blank');
+                }, () => alert("فشل تحديد الموقع"));
+            } else alert("المتصفح لا يدعم");
+            document.getElementById('attachMenu').style.display = 'none';
+        };
+        window.shareChat = () => {
+            if (navigator.share) navigator.share({ title: 'Zeine Messenger', text: 'انضم إلى دردشتي', url: location.href });
+            else alert("المشاركة غير مدعومة في هذا المتصفح");
+            document.getElementById('attachMenu').style.display = 'none';
+        };
+        window.openCamera = () => document.getElementById('cameraFile').click();
+        window.pickContact = async () => {
+            if ('contacts' in navigator) {
+                try {
+                    const contacts = await navigator.contacts.select(['tel'], { multiple: false });
+                    if (contacts.length > 0 && contacts[0].tel && contacts[0].tel.length > 0) {
+                        const phone = contacts[0].tel[0];
+                        if (confirm(`هل تريد الاتصال بالرقم ${phone}؟`)) window.location.href = `tel:${phone}`;
+                    } else alert("لم يتم اختيار رقم");
+                } catch (e) { console.error(e); }
+            } else alert("المتصفح لا يدعم جهات الاتصال");
+            document.getElementById('attachMenu').style.display = 'none';
+        };
+        window.sendSMS = () => {
+            let phone = prompt("أدخل رقم الهاتف:", "+22237454444");
+            if (phone) window.location.href = `sms:${phone}`;
+            document.getElementById('attachMenu').style.display = 'none';
+        };
+
+        // ========== Media Upload ==========
+        async function uploadFile(file, type) {
+            const timestamp = Date.now();
+            const path = `${type}s/${timestamp}_${file.name}`;
+            const storageRef = storage.ref(path);
+            await storageRef.put(file);
+            return await storageRef.getDownloadURL();
+        }
+        window.handleImageUpload = async (input) => {
+            if (input.files && input.files[0]) {
+                const url = await uploadFile(input.files[0], 'image');
+                const room = currentUserRole === 'owner' ? ownerActiveRoom : currentRoomId;
+                await db.child(room).push({
+                    body: url,
+                    time: Date.now(),
+                    sender: currentUserName,
+                    type: 'image'
+                });
+            }
+            input.value = '';
+        };
+        window.handleAudioUpload = async (blob) => {
+            const url = await uploadFile(blob, 'audio');
+            const room = currentUserRole === 'owner' ? ownerActiveRoom : currentRoomId;
+            await db.child(room).push({
+                body: url,
+                time: Date.now(),
+                sender: currentUserName,
+                type: 'audio'
+            });
+        };
+
+        // ========== Audio Recording ==========
+        let mediaRecorder, audioChunks = [], isRecording = false, recordingStream = null;
+        document.getElementById('micBtnBottom').onclick = async function() {
+            if (isRecording) {
+                if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+                isRecording = false;
+                this.classList.remove('rec-active');
+                if (recordingStream) recordingStream.getTracks().forEach(t => t.stop());
+                recordingStream = null;
+                return;
+            }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                recordingStream = stream;
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.onstop = async () => {
+                    if (audioChunks.length === 0) return;
+                    const audioBlob = new Blob(audioChunks, { type: mimeType });
+                    await window.handleAudioUpload(audioBlob);
+                    audioChunks = [];
+                    if (recordingStream) recordingStream.getTracks().forEach(t => t.stop());
+                    recordingStream = null;
+                };
+                mediaRecorder.start();
+                isRecording = true;
+                this.classList.add('rec-active');
+                setTimeout(() => {
+                    if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                        isRecording = false;
+                        this.classList.remove('rec-active');
+                        if (recordingStream) recordingStream.getTracks().forEach(t => t.stop());
+                        recordingStream = null;
+                    }
+                }, 30000);
+            } catch(e) { alert("تعذر الوصول للميكروفون"); }
+        };
+
+        // ========== UI Events ==========
+        function attachOwnerEvents() {
+            document.getElementById('clipBtn').onclick = (e) => {
+                e.stopPropagation();
+                const m = document.getElementById('attachMenu');
+                m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+            };
+            document.getElementById('msgInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendOwnerMessage();
+            });
+            document.getElementById('logoutBtn').onclick = () => {
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = 'index.html';
+            };
+            const menuIcon = document.getElementById('menuIcon');
+            if (menuIcon) menuIcon.onclick = toggleRoomsPopup;
+        }
+        function attachUserEvents() {
+            document.getElementById('userSendBtn').onclick = sendUserMessage;
+            document.getElementById('userMsgInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendUserMessage();
+            });
+            document.getElementById('camBtn').onclick = () => document.getElementById('cameraFile').click();
+            document.getElementById('micBtn').onclick = async () => {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                alert("تم فتح الميكروفون (يمكنك التسجيل الآن)");
+            };
+        }
+        document.getElementById('cameraFile').onchange = (e) => window.handleImageUpload(e.target);
+        document.getElementById('galleryFile').onchange = (e) => window.handleImageUpload(e.target);
+
+        // بدء التشغيل
+        initFirebase();
+        if ('Notification' in window && Notification.permission !== 'granted') Notification.requestPermission();
+    </script>
+</body>
+</html>
