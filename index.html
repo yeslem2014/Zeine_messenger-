@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zeine Messenger - Chat</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background: #e5ddd5; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+        header { background: #075e54; color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .header-right { display: flex; gap: 15px; }
+        .header-right i { font-size: 20px; cursor: pointer; }
+        .app-name { font-size: 18px; font-weight: bold; }
+        .header-left { display: flex; gap: 12px; align-items: center; }
+        .exit-x { font-size: 18px; font-weight: bold; cursor: pointer; }
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .msg { max-width: 80%; padding: 8px 12px; border-radius: 8px; position: relative; word-wrap: break-word; }
+        .me { align-self: flex-end; background: #dcf8c6; }
+        .other { align-self: flex-start; background: #fff; }
+        .t { font-size: 10px; color: #888; margin-top: 4px; display: block; text-align: left; }
+        .sender-name { font-size: 11px; font-weight: bold; color: #075e54; display: block; margin-bottom: 2px; }
+        .delete-btn { position: absolute; left: -25px; top: 5px; background: #ff4444; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; color: white; cursor: pointer; display: none; }
+        .msg:hover .delete-btn { display: block; }
+        #bar { background: #f0f0f0; padding: 8px 12px; display: flex; align-items: center; border-top: 1px solid #ddd; }
+        .tools-right { display: flex; gap: 18px; padding-left: 10px; color: #555; font-size: 24px; }
+        .tools-right i { cursor: pointer; }
+        #msgInput { flex: 1; border: none; padding: 12px 15px; border-radius: 25px; outline: none; background: white; }
+        #attachMenu { position: absolute; bottom: 75px; right: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; flex-direction: column; padding: 10px; gap: 12px; z-index: 1000; min-width: 130px; }
+        .menu-item { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #075e54; padding: 8px; gap: 12px; }
+        .rec-active { color: #f44336 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        img { max-width: 200px; border-radius: 8px; margin-top: 4px; display: block; cursor: pointer; }
+        audio { width: 200px; height: 40px; margin-top: 5px; }
+        .popup-menu { position: fixed; top: 55px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1000; display: none; overflow: hidden; min-width: 180px; }
+        .popup-item { padding: 12px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid #eee; color: #333; }
+        .popup-item.active { background: #f0f0f0; }
+        .save-chat-btn { background: #008080; border: none; color: white; padding: 5px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-right">
+            <i class="fas fa-ellipsis-v" onclick="toggleSettingsPopup()"></i>
+            <i class="fas fa-bars" onclick="toggleRoomsPopup()"></i>
+        </div>
+        <div class="app-name">Zeine_messenger</div>
+        <div class="header-left">
+            <i class="fas fa-trash-alt" id="clearIcon" onclick="clearAll()" style="display:none; cursor:pointer;"></i>
+            <i class="fas fa-phone-alt" onclick="makeVoiceCall()"></i>
+            <i class="fas fa-video" onclick="makeVideoCall()"></i>
+            <button class="save-chat-btn" onclick="exportChat()">💾 حفظ</button>
+            <span class="exit-x" onclick="logout()">X</span>
+        </div>
+    </header>
+    <div id="settingsPopup" class="popup-menu"></div>
+    <div id="roomsPopup" class="popup-menu"></div>
+    <div id="chat"></div>
+    <div id="attachMenu">
+        <div class="menu-item" onclick="openCamera()"><span>الكاميرا</span><i class="fas fa-camera"></i></div>
+        <div class="menu-item" onclick="sendLocation()"><span>الموقع</span><i class="fas fa-map-marker-alt"></i></div>
+        <div class="menu-item" onclick="document.getElementById('galleryFile').click()"><span>المعرض</span><i class="fas fa-image"></i></div>
+    </div>
+    <div id="bar">
+        <div class="tools-right">
+            <i class="fas fa-microphone" id="micBtn"></i>
+            <i class="fas fa-paperclip" id="clipBtn"></i>
+        </div>
+        <input type="text" id="msgInput" placeholder="اكتب رسالة..." enterkeyhint="send" autocomplete="off">
+    </div>
+    <input type="file" id="galleryFile" accept="image/*" style="display:none" onchange="handleFile(this)">
+    <input type="file" id="cameraFile" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this)">
+    <audio id="notifSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3" preload="auto"></audio>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyCaUC9ihg9rwmvILYxnYYC9dUYjhD7b4Ww", authDomain: "mymessenger-4124d.firebaseapp.com", databaseURL: "https://mymessenger-4124d-default-rtdb.firebaseio.com/", projectId: "mymessenger-4124d", storageBucket: "mymessenger-4124d.firebasestorage.app" };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        // إضافة للتأكد من الحالة
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        alert("أنت مسجل دخول حالياً بـ ID: " + user.uid);
+    } else {
+        // إذا لم يكن مسجلاً، نجبره على التسجيل كمجهول لنرى هل يختفي الخطأ
+        firebase.auth().signInAnonymously().then(() => {
+            alert("تم تسجيل الدخول كمجهول بنجاح! جرب فتح الصفحة الآن.");
+        }).catch((error) => {
+            alert("خطأ التسجيل: " + error.message);
+        });
+    }
+});
+
+        const auth = firebase.auth();
+        let db;
+
+        async function initFirebase() { try { await auth.signInAnonymously(); db = firebase.database().ref('final_perfect_v12'); startApp(); } catch (e) { console.error(e); } }
+
+        const userType = localStorage.getItem('zeine_user_type');
+        const userName = localStorage.getItem('zeine_user_name');
+        const userRoom = localStorage.getItem('zeine_user_room') || 'general';
+        if (!userType || !userName) { window.location.href = 'index.html'; }
+        const isOwner = (userType === 'owner');
+        let currentRoom = isOwner ? 'general' : userRoom;
+        let myName = userName;
+        const ROOM_NAMES = { general: "الرئيسة العامة", family: "العائلة", friends: "الأصدقاء", private: "الغرفة الخاصة" };
+        const OWNER_PHONE = "+22237454444";
+        if (isOwner) document.getElementById('clearIcon').style.display = 'inline-block';
+
+        function playNotificationSound() { const sound = document.getElementById('notifSound'); if (sound) sound.play().catch(() => {}); }
+        function getMessages() { return JSON.parse(localStorage.getItem(`chat_${currentRoom}`) || '[]'); }
+        function saveMessages(m) { localStorage.setItem(`chat_${currentRoom}`, JSON.stringify(m)); }
+        
+        let lastMsgCount = 0;
+        function displayMessages() {
+            let msgs = getMessages();
+            if (msgs.length === lastMsgCount) return; 
+            if (lastMsgCount > 0 && msgs.length > lastMsgCount) playNotificationSound();
+            lastMsgCount = msgs.length;
+            let chatDiv = document.getElementById('chat');
+            chatDiv.innerHTML = msgs.map((msg, idx) => {
+                let isMe = (msg.sender === myName && !msg.isOwner);
+                let body = msg.type === 'image' ? `<img src="${msg.text}" onclick="showImageFullscreen('${msg.text}')">` : (msg.type === 'audio' ? `<audio controls><source src="${msg.text}"></audio>` : (msg.type === 'location' ? `<a href="${msg.text}" target="_blank">📍 الموقع</a>` : msg.text));
+                return `<div class="msg ${isMe ? 'me' : 'other'}">${!msg.isOwner && msg.sender !== myName ? `<span class="sender-name">${msg.sender}</span>` : ''}<div>${body}</div><span class="t">${msg.time}</span>${isOwner && !msg.isOwner ? `<button class="delete-btn" onclick="deleteMessage(${idx})">✖</button>` : ''}</div>`;
+            }).join('');
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+
+        // --- ميزات جديدة ---
+        function makeVoiceCall() { let p = prompt("رقم الهاتف:", OWNER_PHONE); if(p) window.location.href = `tel:${p}`; }
+        function makeVideoCall() { let p = prompt("رقم الفيديو:", OWNER_PHONE); if(p) window.location.href = `tel:${p}`; }
+        
+        let mediaRecorder, audioChunks = [], isRecording = false, recordingStream = null;
+        document.getElementById('micBtn').onclick = async function() {
+            const btn = this;
+            if (isRecording) { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); isRecording = false; btn.classList.remove('rec-active'); if (recordingStream) recordingStream.getTracks().forEach(t => t.stop()); recordingStream = null; return; }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                recordingStream = stream;
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.onstop = () => { if (audioChunks.length === 0) return; const audioBlob = new Blob(audioChunks, { type: mimeType }); const reader = new FileReader(); reader.onloadend = () => { sendMsg(reader.result, 'audio'); if (recordingStream) recordingStream.getTracks().forEach(t => t.stop()); }; reader.readAsDataURL(audioBlob); audioChunks = []; };
+                mediaRecorder.start();
+                isRecording = true;
+                btn.classList.add('rec-active');
+                setTimeout(() => { if (isRecording) { mediaRecorder.stop(); isRecording = false; btn.classList.remove('rec-active'); } }, 30000);
+            } catch(err) { alert("تعذر الوصول للميكروفون"); }
+        };
+
+        function exportChat() {
+            const msgs = getMessages();
+            if (msgs.length === 0) { alert("لا توجد رسائل للحفظ"); return; }
+            let content = `Zeine Messenger - ${ROOM_NAMES[currentRoom]}\nتاريخ التصدير: ${new Date().toLocaleString()}\nعدد الرسائل: ${msgs.length}\n${"─".repeat(40)}\n\n`;
+            msgs.forEach(msg => {
+                let msgText = msg.type === 'image' ? '[صورة]' : (msg.type === 'audio' ? '[تسجيل صوتي]' : (msg.type === 'location' ? '[موقع]' : msg.text));
+                content += `[${msg.time}] ${msg.sender}: ${msgText}\n`;
+            });
+            const blob = new Blob([content], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `chat_${currentRoom}_${new Date().toISOString().slice(0,10)}.txt`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            alert("✅ تم حفظ المحادثة");
+        }
+
+        // --- باقي الدوال ---
+        function showImageFullscreen(src) { const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;'; modal.innerHTML = `<img src="${src}" style="max-width:90%; max-height:90%; border-radius:8px;">`; modal.onclick = () => modal.remove(); document.body.appendChild(modal); }
+        function toggleRoomsPopup() { let p = document.getElementById('roomsPopup'); if (p.style.display === 'block') { p.style.display = 'none'; } else { document.getElementById('settingsPopup').style.display = 'none'; p.innerHTML = Object.entries(ROOM_NAMES).map(([id, name]) => `<div class="popup-item ${id === currentRoom ? 'active' : ''}" onclick="switchRoom('${id}')"><i class="fas ${id === 'general' ? 'fa-globe' : id === 'family' ? 'fa-home' : id === 'friends' ? 'fa-users' : 'fa-lock'}"></i><span>${name}</span></div>`).join(''); p.style.display = 'block'; } }
+        function toggleSettingsPopup() { let p = document.getElementById('settingsPopup'); if (p.style.display === 'block') { p.style.display = 'none'; } else { document.getElementById('roomsPopup').style.display = 'none'; p.innerHTML = `<div class="popup-item" onclick="alert('الحساب: ${myName}')"><i class="fas fa-user-circle"></i><span>الحساب</span></div><div class="popup-item" onclick="alert('Zeine Messenger v2.0')"><i class="fas fa-info-circle"></i><span>حول</span></div>`; p.style.display = 'block'; } }
+        function handleFile(input) { if (input.files && input.files[0]) { const loadingMsg = { sender: myName, isOwner: isOwner, text: '⏳ جاري رفع الصورة...', type: 'text', time: '...' }; let msgs = getMessages(); msgs.push(loadingMsg); saveMessages(msgs); displayMessages(); let r = new FileReader(); r.onload = e => { let msgs2 = getMessages(); msgs2.pop(); msgs2.push({ sender: myName, isOwner: isOwner, text: e.target.result, type: 'image', time: new Date().toLocaleTimeString().slice(0,5) }); saveMessages(msgs2); lastMsgCount = 0; displayMessages(); }; r.readAsDataURL(input.files[0]); } input.value = ''; }
+        function sendLocation() { if (navigator.geolocation) { navigator.geolocation.getCurrentPosition(p => { const url = `https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`; sendMsg(url, 'location'); }, () => alert("فشل تحديد الموقع")); } document.getElementById('attachMenu').style.display = 'none'; }
+        function sendMsg(content, type='text') { let text = content || document.getElementById('msgInput').value.trim(); if (!text) return; let d = new Date(), time = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; let msgs = getMessages(); msgs.push({ sender: myName, isOwner: isOwner, text: text, type: type, time: time }); saveMessages(msgs); if (!content) document.getElementById('msgInput').value = ''; lastMsgCount = 0; displayMessages(); }
+        function openCamera() { document.getElementById('cameraFile').click(); document.getElementById('attachMenu').style.display = 'none'; }
+        function deleteMessage(idx) { let m = getMessages(); m.splice(idx,1); saveMessages(m); lastMsgCount = 0; displayMessages(); }
+        function clearAll() { if(confirm("حذف الكل؟")) { saveMessages([]); lastMsgCount = 0; displayMessages(); } }
+        function logout() { if(confirm("هل أنت متأكد؟")) { localStorage.clear(); window.location.href = 'index.html'; } }
+        function switchRoom(roomId) { currentRoom = roomId; document.getElementById('roomsPopup').style.display = 'none'; lastMsgCount = 0; displayMessages(); }
+        document.getElementById('clipBtn').onclick = (e) => { e.stopPropagation(); let m = document.getElementById('attachMenu'); m.style.display = (m.style.display === 'flex') ? 'none' : 'flex'; };
+        document.addEventListener('click', (e) => { const a = document.getElementById('attachMenu'); if (a.style.display === 'flex' && !a.contains(e.target) && e.target !== document.getElementById('clipBtn')) a.style.display = 'none'; });
+        document.getElementById('msgInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
+        function startApp() { displayMessages(); setInterval(displayMessages, 2000); }
+        initFirebase();
+    </script>
+</body>
+</html>
