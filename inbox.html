@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zeine Messenger - الدردشة</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background: #e5ddd5; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+        
+        header { background: #075e54; color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        .header-right { display: flex; gap: 15px; }
+        .header-right i { font-size: 20px; cursor: pointer; }
+        .app-name { font-size: 18px; font-weight: bold; }
+        .header-left { display: flex; gap: 12px; align-items: center; }
+        .exit-x { font-size: 18px; font-weight: bold; cursor: pointer; }
+        .save-chat-btn { background: #008080; border: none; color: white; padding: 5px 10px; border-radius: 20px; cursor: pointer; font-size: 12px; margin-right: 5px; }
+        
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .msg { max-width: 80%; padding: 8px 12px; border-radius: 8px; position: relative; word-wrap: break-word; }
+        .me { align-self: flex-end; background: #dcf8c6; }
+        .other { align-self: flex-start; background: #fff; }
+        .t { font-size: 10px; color: #888; margin-top: 4px; display: block; text-align: left; }
+        .sender-name { font-size: 11px; font-weight: bold; color: #075e54; display: block; margin-bottom: 2px; }
+        .delete-btn { position: absolute; left: -25px; top: 5px; background: #ff4444; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; color: white; cursor: pointer; display: none; }
+        .msg:hover .delete-btn { display: block; }
+        
+        #bar { background: #f0f0f0; padding: 8px 12px; display: flex; align-items: center; border-top: 1px solid #ddd; }
+        .tools-right { display: flex; gap: 18px; padding-left: 10px; color: #555; font-size: 24px; }
+        .tools-right i { cursor: pointer; }
+        #msgInput { flex: 1; border: none; padding: 12px 15px; border-radius: 25px; outline: none; background: white; }
+        
+        #attachMenu { position: absolute; bottom: 75px; right: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; flex-direction: column; padding: 10px; gap: 12px; z-index: 1000; min-width: 130px; }
+        .menu-item { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #075e54; padding: 8px; gap: 12px; }
+        .rec-active { color: #f44336 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        
+        img { max-width: 200px; border-radius: 8px; margin-top: 4px; }
+        audio { width: 200px; height: 40px; margin-top: 5px; }
+        a { color: #075e54; text-decoration: none; }
+        
+        .rooms-popup {
+            position: fixed;
+            top: 55px;
+            right: 15px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+            min-width: 180px;
+        }
+        .rooms-popup .popup-item {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+        .rooms-popup .popup-item:last-child { border-bottom: none; }
+        .rooms-popup .popup-item:hover { background: #f5f5f5; }
+        .rooms-popup .popup-item i { width: 25px; color: #075e54; }
+        .rooms-popup .popup-item .unread-badge-small { background: #ff4444; color: white; border-radius: 20px; padding: 0 6px; font-size: 10px; margin-right: 8px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-right">
+        <i class="fas fa-ellipsis-v" onclick="toggleSettingsPopup()"></i>
+        <i class="fas fa-bars" id="roomsMenuBtn" onclick="toggleRoomsPopup()"></i>
+    </div>
+    <div class="app-name">Zeine_messenger</div>
+    <div class="header-left">
+        <i class="fas fa-trash-alt" id="clearIcon" onclick="clearAll()" style="display:none; cursor:pointer;"></i>
+        <i class="fas fa-phone-alt" onclick="makeVoiceCall()"></i>
+        <i class="fas fa-video" onclick="makeVideoCall()"></i>
+        <button class="save-chat-btn" onclick="exportChat()">💾 حفظ</button>
+        <span class="exit-x" onclick="logout()">X</span>
+    </div>
+</header>
+
+<div id="roomsPopup" class="rooms-popup"></div>
+<div id="chat"></div>
+
+<div id="attachMenu">
+    <div class="menu-item" onclick="openCamera()"><span>الكاميرا</span><i class="fas fa-camera"></i></div>
+    <div class="menu-item" onclick="sendLocation()"><span>الموقع</span><i class="fas fa-map-marker-alt"></i></div>
+    <div class="menu-item" onclick="uploadImageFromGallery()"><span>المعرض</span><i class="fas fa-image"></i></div>
+    <div class="menu-item" onclick="shareChat()"><span>مشاركة</span><i class="fas fa-share-alt"></i></div>
+</div>
+
+<div id="bar">
+    <div class="tools-right">
+        <i class="fas fa-microphone" id="micBtn"></i>
+        <i class="fas fa-paperclip" id="clipBtn"></i>
+    </div>
+    <input type="text" id="msgInput" placeholder="اكتب رسالة..." enterkeyhint="send" autocomplete="off">
+</div>
+
+<input type="file" id="galleryFile" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+<input type="file" id="cameraFile" accept="image/*" capture="environment" style="display:none" onchange="handleImageUpload(this)">
+<audio id="notifSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3" preload="auto"></audio>
+
+<script>
+    // ============= الإعدادات الأساسية =============
+    const firebaseConfig = {
+        apiKey: "AIzaSyCaUC9ihg9rwmvILYxnYYC9dUYjhD7b4Ww",
+        authDomain: "mymessenger-4124d.firebaseapp.com",
+        databaseURL: "https://mymessenger-4124d-default-rtdb.firebaseio.com/",
+        projectId: "mymessenger-4124d",
+        storageBucket: "mymessenger-4124d.firebasestorage.app"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    let db, storage;
+    let currentUserRole = null;
+    let currentRoomId = null;
+    let currentUserName = null;
+    let ownerActiveRoom = 'general';
+
+    // ============= دالة تسجيل uid في قاعدة البيانات (للقواعد الصارمة) =============
+    async function registerUidInFirebase(uid, isOwner, storedUser) {
+        const ownerRef = firebase.database().ref('owners/' + uid);
+        const userRef = firebase.database().ref('users/' + uid);
+        const [ownerSnap, userSnap] = await Promise.all([ownerRef.once('value'), userRef.once('value')]);
+
+        if (isOwner && !ownerSnap.exists()) {
+            await ownerRef.set({ name: 'zeine', role: 'owner', isAdmin: true });
+        } else if (!isOwner && !userSnap.exists() && storedUser && storedUser.name) {
+            await userRef.set({
+                name: storedUser.name,
+                allowed_rooms: { [storedUser.room || 'general']: true }
+            });
+        }
+    }
+
+    // ============= تسجيل الدخول المجهول + تسجيل uid =============
+    auth.signInAnonymously()
+        .then(async (userCredential) => {
+            const uid = userCredential.user.uid;
+            const isOwner = localStorage.getItem('zeine_owner') === 'true';
+            const storedUser = JSON.parse(localStorage.getItem('zeine_user') || '{}');
+            await registerUidInFirebase(uid, isOwner, storedUser);
+            console.log("تم تسجيل الدخول المجهول و uid مسجل");
+            startApp();
+        })
+        .catch((error) => {
+            console.error("فشل تسجيل الدخول المجهول:", error);
+            alert("حدث خطأ في الاتصال. تأكد من اتصالك بالإنترنت.");
+        });
+
+    function startApp() {
+        const isAuth = sessionStorage.getItem('zeine_auth') || localStorage.getItem('zeine_owner');
+        if (!isAuth) window.location.href = 'index.html';
+        
+        const storedUser = JSON.parse(localStorage.getItem('zeine_user') || '{}');
+        const userRole = sessionStorage.getItem('zeine_role') || storedUser.role;
+        let myName = storedUser.name || localStorage.getItem('zeine_user_name') || 'zeine';
+        let currentRoom = (userRole === 'member' && storedUser.room) ? storedUser.room : 'general';
+        
+        const ROOM_NAMES = { general: "الرئيسة العامة", family: "العائلة", friends: "الأصدقاء", private: "الغرفة الخاصة" };
+        const ROOM_LIST = ["general", "family", "friends", "private"];
+        
+        db = firebase.database().ref('final_perfect_v12');
+        storage = firebase.storage();
+        
+        let unreadCounts = { general: 0, family: 0, friends: 0, private: 0 };
+        let notificationPermission = false;
+        
+        // ============= التحقق من صلاحيات المالك وإظهار/إخفاء أزرار الحذف =============
+        firebase.auth().onAuthStateChanged(async (user) => {
+            const clearIcon = document.getElementById('clearIcon');
+            const deleteButtons = document.querySelectorAll('.delete-btn');
+            
+            if (!user) return;
+            
+            try {
+                const idTokenResult = await user.getIdTokenResult();
+                const isOwnerFlag = idTokenResult.claims.role === 'owner';
+                
+                if (clearIcon) {
+                    clearIcon.style.display = isOwnerFlag ? 'inline-block' : 'none';
+                }
+                
+                deleteButtons.forEach(btn => {
+                    btn.style.display = isOwnerFlag ? 'inline-block' : 'none';
+                });
+                
+                console.log(isOwnerFlag ? "👑 أنت المالك (يمكنك الحذف)" : "👤 أنت مستخدم عادي");
+            } catch (error) {
+                console.error("خطأ في جلب الصلاحيات:", error);
+            }
+        });
+        
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission !== 'granted') {
+                Notification.requestPermission().then(perm => notificationPermission = (perm === 'granted'));
+            }
+        }
+        function playNotificationSound() {
+            const sound = document.getElementById('notifSound');
+            if (sound) { sound.currentTime = 0; sound.play().catch(() => {}); }
+        }
+        function showBrowserNotification(roomName, sender, message) {
+            if (!notificationPermission) return;
+            new Notification('📢 Zeine Messenger', {
+                body: `رسالة جديدة من ${sender} في غرفة ${roomName}: ${message.substring(0, 50)}`,
+                tag: roomName
+            });
+        }
+        
+        async function uploadImage(file) {
+            if (!file) return null;
+            const timestamp = Date.now();
+            const fileName = `images/${currentRoom}/${timestamp}_${file.name}`;
+            try {
+                const snapshot = await storage.ref(fileName).put(file);
+                return await snapshot.ref.getDownloadURL();
+            } catch (error) { return null; }
+        }
+        async function handleImageUpload(input) {
+            if (input.files && input.files[0]) {
+                const url = await uploadImage(input.files[0]);
+                if (url) sendToCurrentRoom({ body: url, time: Date.now(), sender: myName, type: 'image' });
+            }
+            input.value = '';
+        }
+        
+        async function uploadAudio(blob) {
+            const timestamp = Date.now();
+            const fileName = `audios/${currentRoom}/${timestamp}.webm`;
+            try {
+                const snapshot = await storage.ref(fileName).put(blob);
+                return await snapshot.ref.getDownloadURL();
+            } catch (error) { return null; }
+        }
+        
+        function formatMessage(msg) {
+            if (msg.type === 'image') return `<img src="${msg.body}">`;
+            if (msg.type === 'audio') return `<audio controls src="${msg.body}"></audio>`;
+            if (msg.type === 'location') return `<a href="${msg.body}" target="_blank">📍 عرض الموقع</a>`;
+            return msg.body;
+        }
+        
+        function addMessageToChat(msg, roomName) {
+            if (roomName !== currentRoom) return;
+            const chatDiv = document.getElementById('chat');
+            const isMe = (msg.sender === myName && !msg.isOwner);
+            const nameHtml = msg.isOwner ? '<span class="sender-name">zeine</span>' : (msg.sender !== myName ? `<span class="sender-name">${msg.sender}</span>` : '');
+            const body = formatMessage(msg);
+            const msgDiv = document.createElement('div');
+            msgDiv.setAttribute('data-key', msg.key);
+            msgDiv.className = `msg ${isMe ? 'me' : 'other'}`;
+            msgDiv.innerHTML = `${nameHtml}<div>${body}</div><span class="t">${new Date(msg.time).toLocaleTimeString()}</span>${(userRole === 'owner' || localStorage.getItem('zeine_owner')) && !msg.isOwner ? `<button class="delete-btn" onclick="deleteMessage('${msg.key}')">✖</button>` : ''}`;
+            chatDiv.appendChild(msgDiv);
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+            
+            if (msg.sender !== myName) {
+                if (roomName !== currentRoom) {
+                    unreadCounts[roomName]++;
+                    playNotificationSound();
+                    showBrowserNotification(roomName, msg.sender, msg.body);
+                    updateUnreadBadge();
+                }
+            }
+        }
+        
+        function updateUnreadBadge() {
+            const popup = document.getElementById('roomsPopup');
+            if (popup && popup.style.display === 'block') {
+                document.querySelectorAll('.popup-item').forEach(item => {
+                    const roomId = item.getAttribute('data-room');
+                    if (roomId && unreadCounts[roomId] > 0) {
+                        let badge = item.querySelector('.unread-badge-small');
+                        if (!badge) {
+                            badge = document.createElement('span');
+                            badge.className = 'unread-badge-small';
+                            item.appendChild(badge);
+                        }
+                        badge.innerText = unreadCounts[roomId] > 99 ? '99+' : unreadCounts[roomId];
+                    }
+                });
+            }
+        }
+        
+        function deleteMessage(msgId) {
+            if (confirm("🗑️ هل تريد حذف هذه الرسالة نهائياً؟")) {
+                db.child(currentRoom).child(msgId).remove();
+            }
+        }
+        
+        function initChat() {
+            db.child(currentRoom).on('child_added', (snap) => {
+                const msg = snap.val();
+                msg.key = snap.key;
+                addMessageToChat(msg, currentRoom);
+            });
+            
+            db.child(currentRoom).on('child_removed', (snap) => {
+                const msgElement = document.querySelector(`[data-key="${snap.key}"]`);
+                if (msgElement) msgElement.remove();
+            });
+            
+            db.child(currentRoom).once('value', (snap) => {
+                const chatDiv = document.getElementById('chat');
+                chatDiv.innerHTML = '';
+                const msgs = [];
+                snap.forEach(c => msgs.push({ key: c.key, ...c.val() }));
+                msgs.sort((a,b) => a.time - b.time);
+                msgs.forEach(msg => addMessageToChat(msg, currentRoom));
+            });
+        }
+        
+        function sendToCurrentRoom(data) { db.child(currentRoom).push(data); }
+        
+        function sendMsg() {
+            const input = document.getElementById('msgInput');
+            const text = input.value.trim();
+            if (!text) return;
+            sendToCurrentRoom({ body: text, time: Date.now(), sender: myName, type: 'text' });
+            input.value = '';
+        }
+        
+        function uploadImageFromGallery() { document.getElementById('galleryFile').click(); }
+        function openCamera() { document.getElementById('cameraFile').click(); }
+        
+        function sendLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(p => {
+                    const url = `https://www.google.com/maps/search/?api=1&query=${p.coords.latitude},${p.coords.longitude}`;
+                    sendToCurrentRoom({ body: url, time: Date.now(), sender: myName, type: 'location' });
+                    window.open(url, '_blank');
+                }, () => alert("فشل تحديد الموقع"));
+            } else { alert("المتصفح لا يدعم مشاركة الموقع"); }
+            document.getElementById('attachMenu').style.display = 'none';
+        }
+        
+        function shareChat() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Zeine Messenger',
+                    text: 'انضم إلى دردشتي على Zeine Messenger',
+                    url: window.location.href
+                }).catch(() => {});
+            } else {
+                alert("المتصفح لا يدعم المشاركة");
+            }
+            document.getElementById('attachMenu').style.display = 'none';
+        }
+        
+        function exportChat() {
+            const messages = [];
+            db.child(currentRoom).once('value', (snap) => {
+                snap.forEach(c => messages.push(c.val()));
+                if (messages.length === 0) {
+                    alert("لا توجد رسائل لحفظها");
+                    return;
+                }
+                let content = `Zeine Messenger - محادثة ${currentRoom}\n`;
+                content += `تاريخ التصدير: ${new Date().toLocaleString()}\n`;
+                content += `عدد الرسائل: ${messages.length}\n`;
+                content += "─".repeat(40) + "\n\n";
+                messages.sort((a,b) => a.time - b.time);
+                messages.forEach(msg => {
+                    content += `[${new Date(msg.time).toLocaleTimeString()}] ${msg.sender}: ${msg.body}\n`;
+                });
+                const blob = new Blob([content], { type: 'text/plain' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `chat_${currentRoom}_${new Date().toISOString().slice(0,10)}.txt`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+                alert("✅ تم حفظ المحادثة");
+            });
+        }
+        
+        function autoClearOldMessages() {
+            const lastClearKey = `last_clear_${currentRoom}`;
+            const lastClear = localStorage.getItem(lastClearKey);
+            const now = Date.now();
+            const oneWeek = 7 * 24 * 60 * 60 * 1000;
+            
+            if (!lastClear || (now - parseInt(lastClear)) >= oneWeek) {
+                const oneWeekAgo = now - oneWeek;
+                db.child(currentRoom).once('value', (snap) => {
+                    const updates = {};
+                    let deleteCount = 0;
+                    snap.forEach(child => {
+                        const msg = child.val();
+                        if (msg.time && msg.time < oneWeekAgo) {
+                            updates[child.key] = null;
+                            deleteCount++;
+                        }
+                    });
+                    if (deleteCount > 0) {
+                        db.child(currentRoom).update(updates);
+                        console.log(`تم حذف ${deleteCount} رسالة قديمة`);
+                    }
+                });
+                localStorage.setItem(lastClearKey, now.toString());
+            }
+        }
+        
+        function clearAll() {
+            if (confirm("🗑️ هل تريد حذف جميع رسائل هذه الغرفة نهائياً؟")) {
+                db.child(currentRoom).set(null);
+                document.getElementById('chat').innerHTML = '';
+            }
+        }
+        
+        function makeVoiceCall() { window.location.href = `tel:+22237454444`; }
+        function makeVideoCall() { window.location.href = `tel:+22237454444`; }
+        
+        function toggleRoomsPopup() {
+            if (userRole !== 'owner' && !localStorage.getItem('zeine_owner')) {
+                alert("غير مسموح لك بفتح قائمة الغرف");
+                return;
+            }
+            const popup = document.getElementById('roomsPopup');
+            if (popup.style.display === 'block') {
+                popup.style.display = 'none';
+            } else {
+                popup.innerHTML = ROOM_LIST.map(roomId => `
+                    <div class="popup-item" data-room="${roomId}" onclick="switchRoom('${roomId}')">
+                        <i class="fas ${roomId === 'general' ? 'fa-globe' : roomId === 'family' ? 'fa-home' : roomId === 'friends' ? 'fa-users' : 'fa-lock'}"></i>
+                        <span>${ROOM_NAMES[roomId]}</span>
+                        ${unreadCounts[roomId] > 0 ? `<span class="unread-badge-small">${unreadCounts[roomId] > 99 ? '99+' : unreadCounts[roomId]}</span>` : ''}
+                    </div>
+                `).join('');
+                popup.style.display = 'block';
+            }
+        }
+        
+        function switchRoom(roomId) {
+            if (currentRoom === roomId) {
+                document.getElementById('roomsPopup').style.display = 'none';
+                return;
+            }
+            db.child(currentRoom).off();
+            currentRoom = roomId;
+            document.getElementById('roomsPopup').style.display = 'none';
+            document.getElementById('chat').innerHTML = '';
+            unreadCounts[currentRoom] = 0;
+            initChat();
+        }
+        
+        function toggleSettingsPopup() {
+            alert(`👤 الحساب: ${myName}\n🔒 الخصوصية: مشفرة\n🌐 اللغة: العربية\n📱 الإصدار: 2.0`);
+        }
+        
+        function logout() {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+        
+        let mediaRecorder, audioChunks = [], isRecording = false, recordingStream = null;
+        document.getElementById('micBtn').onclick = async function() {
+            const btn = this;
+            if (isRecording) {
+                if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+                isRecording = false;
+                btn.classList.remove('rec-active');
+                if (recordingStream) { recordingStream.getTracks().forEach(t => t.stop()); recordingStream = null; }
+                return;
+            }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                recordingStream = stream;
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.onstop = async () => {
+                    if (audioChunks.length === 0) return;
+                    const audioBlob = new Blob(audioChunks, { type: mimeType });
+                    const audioUrl = await uploadAudio(audioBlob);
+                    if (audioUrl) sendToCurrentRoom({ body: audioUrl, time: Date.now(), sender: myName, type: 'audio' });
+                    audioChunks = [];
+                    if (recordingStream) { recordingStream.getTracks().forEach(t => t.stop()); recordingStream = null; }
+                };
+                mediaRecorder.start();
+                isRecording = true;
+                btn.classList.add('rec-active');
+                setTimeout(() => {
+                    if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                        isRecording = false;
+                        btn.classList.remove('rec-active');
+                        if (recordingStream) { recordingStream.getTracks().forEach(t => t.stop()); recordingStream = null; }
+                    }
+                }, 30000);
+            } catch(err) { alert("تعذر الوصول للميكروفون"); if (recordingStream) { recordingStream.getTracks().forEach(t => t.stop()); recordingStream = null; } }
+        };
+        
+        document.getElementById('clipBtn').onclick = (e) => {
+            e.stopPropagation();
+            const m = document.getElementById('attachMenu');
+            m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+        };
+        document.getElementById('msgInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
+        
+        if (userRole === 'owner' || localStorage.getItem('zeine_owner')) {
+            const clearIcon = document.getElementById('clearIcon');
+            if (clearIcon) clearIcon.style.display = 'inline-block';
+        }
+        
+        // ============= ربط الدوال بالنطاق العام =============
+        window.sendMsg = sendMsg;
+        window.toggleRoomsPopup = toggleRoomsPopup;
+        window.switchRoom = switchRoom;
+        window.toggleSettingsPopup = toggleSettingsPopup;
+        window.makeVoiceCall = makeVoiceCall;
+        window.makeVideoCall = makeVideoCall;
+        window.exportChat = exportChat;
+        window.logout = logout;
+        window.clearAll = clearAll;
+        window.openCamera = openCamera;
+        window.uploadImageFromGallery = uploadImageFromGallery;
+        window.sendLocation = sendLocation;
+        window.shareChat = shareChat;
+        window.handleImageUpload = handleImageUpload;
+        window.handleFile = handleFile;
+        
+        requestNotificationPermission();
+        initChat();
+        autoClearOldMessages();
+    }
+</script>
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker Registered!'))
+                .catch(err => console.log('Service Worker Failed:', err));
+        });
+    }
+</script>
+</body>
+</html>
